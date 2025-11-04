@@ -67,8 +67,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const edges = [];
 
         // Ana (kök) makaleyi ekle
-        nodes.push({ E-posta: { 
-E-posta:   id: data.paperId, 
+        nodes.push({ 
+            id: data.paperId, 
             label: `[ANA MAKALE]\n${data.title.substring(0, 30)}...`,
             title: `${data.title} (${data.year})`,
             color: '#f0a30a',
