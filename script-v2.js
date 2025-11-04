@@ -7,43 +7,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const networkContainer = document.getElementById('network');
     const status = document.getElementById('status');
 
-    // Grafiği çizmek için Vis.js seçenekleri
+    // Grafiği çizmek için Vis.js seçenekleri (DEĞİŞMEDİ)
     const options = {
-        nodes: {
-            shape: 'dot',
-            size: 16,
-            font: {
-                size: 14,
-                color: '#333'
-            },
-            borderWidth: 2
-        },
-        edges: {
-            width: 2,
-            arrows: {
-                to: { enabled: true, scaleFactor: 0.5 }
-            }
-        },
-        physics: {
-            // Grafiğin daha hızlı yerleşmesi için ayarlar
-            solver: 'barnesHut',
-            barnesHut: {
-                gravitationalConstant: -3000
-            }
-        }
+        nodes: { shape: 'dot', size: 16, font: { size: 14, color: '#333' }, borderWidth: 2 },
+        edges: { width: 2, arrows: { to: { enabled: true, scaleFactor: 0.5 } } },
+        physics: { solver: 'barnesHut', barnesHut: { gravitationalConstant: -3000 } }
     };
 
-    // "Ara" düğmesine tıklandığında
-    searchButton.onclick = () => {
-        searchPaper();
-    };
-    
-    // "Enter" tuşuna basıldığında da ara
-    paperInput.onkeyup = (event) => {
-        if (event.key === 'Enter') {
-            searchPaper();
-        }
-    };
+    // "Ara" düğmesi olayları (DEĞİŞMEDİ)
+    searchButton.onclick = () => { searchPaper(); };
+    paperInput.onkeyup = (event) => { if (event.key === 'Enter') { searchPaper(); } };
 
 
     // Ana arama fonksiyonu
@@ -57,20 +30,28 @@ document.addEventListener('DOMContentLoaded', () => {
         status.textContent = 'Aranıyor... Lütfen bekleyin...';
 
         try {
-            // 1. Semantic Scholar API'sini çağır
             
-            // --- BURASI DÜZELTİLMİŞ KISIM ---
-            // 'encodeURIComponent' kaldırıldı ve 'DOI:' ön eki eklendi.
+            // --- HATA DÜZELTMESİ (NİHAİ SÜRÜM) ---
             
+            // 1. "DOI:" ön ekini ekle.
             const paperId = `DOI:${query}`; 
-            const apiUrl = `https://api.semanticscholar.org/v1/paper/${paperId}?fields=title,authors,year,references.title,citations.title`;
+            
+            // 2. TÜM ID'Yİ (DOI:10.1109/5.771073) URL için güvenli hale getir.
+            // Bu, '/' karakterini '%2F'ye ve ':' karakterini '%3A'ya çevirir.
+            // Bütün sorunu çıkaran eksik adım buydu.
+            const encodedPaperId = encodeURIComponent(paperId);
+            
+            // 3. Güvenli ID'yi API adresine ekle.
+            const apiUrl = `https://api.semanticscholar.org/v1/paper/${encodedPaperId}?fields=title,authors,year,references.title,citations.title`;
             
             // --- DÜZELTME SONU ---
 
             const response = await fetch(apiUrl);
             
             if (!response.ok) {
-                throw new Error('Makale bulunamadı veya API hatası.');
+                // Sunucudan gelen hatayı daha detaylı gösterelim
+                const errorData = await response.json();
+                throw new Error(`API Hatası: ${errorData.error || 'Makale bulunamadı'}`);
             }
             
             const data = await response.json();
@@ -103,7 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // 1. Kaynakçayı (References) ekle
         if (data.references) {
             data.references.forEach(ref => {
-                if (ref.PaperId) { // Semantic Scholar API 'paperId' olarak değiştirmiş olabilir
+                if (ref.paperId) {
                     nodes.push({
                         id: ref.paperId,
                         label: ref.title.substring(0, 30) + '...',
