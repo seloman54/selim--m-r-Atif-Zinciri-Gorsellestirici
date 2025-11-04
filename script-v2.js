@@ -31,13 +31,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             
-            // --- HATA DÜZELTMESİ (NİHAİ SÜRÜM - TÜM HATALAR TEMİZLENDİ) ---
+            // --- HATA DÜZELTMESİ (GERÇEK NİHAİ SÜRÜM v4) ---
             
-            // 1. NE 'DOI:' ÖN EKİ, NE DE 'encodeURIComponent' KULLANILIYOR.
-            // Sadece girdiği sorgu (query) olduğu gibi API'ye gönderiliyor.
-            // BÜTÜN SORUN BU İKİ HATALI KODMUŞ.
+            // 1. Girdiyi (query) URL için güvenli hale getir.
+            // Bu, '10.1109/5.771073' adresini '10.1109%2F5.771073' yapar.
+            // Bütün 'Not found' hatasının nedeni bu / karakteriydi.
+            const encodedQuery = encodeURIComponent(query);
             
-            const apiUrl = `https://api.semanticscholar.org/v1/paper/${query}?fields=title,authors,year,references.title,citations.title`;
+            // 2. API'nin istediği 'DOI:' ön ekini, kodlanmış metnin BAŞINA ekle.
+            const paperId = `DOI:${encodedQuery}`; 
+            
+            // 3. API'yi çağır.
+            const apiUrl = `https://api.semanticscholar.org/v1/paper/${paperId}?fields=title,authors,year,references.title,citations.title`;
             
             // --- DÜZELTME SONU ---
 
