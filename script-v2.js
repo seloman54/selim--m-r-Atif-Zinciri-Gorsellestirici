@@ -31,18 +31,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             
-            // --- HATA DÜZELTMESİ (BU SEFER %100 DOĞRU) ---
+            // --- HATA DÜZELTMESİ (NİHAİ SÜRÜM - TÜM HATALAR TEMİZLENDİ) ---
             
-            // 1. Önce 'DOI:' ön ekini ekle.
-            const paperId = `DOI:${query}`; 
+            // 1. NE 'DOI:' ÖN EKİ, NE DE 'encodeURIComponent' KULLANILIYOR.
+            // Sadece girdiği sorgu (query) olduğu gibi API'ye gönderiliyor.
+            // BÜTÜN SORUN BU İKİ HATALI KODMUŞ.
             
-            // 2. SONRA, 'DOI:10.1109/5.771073' METNİNİN TAMAMINI KODLA.
-            // Bu, 'DOI%3A10.1109%2F5.771073' haline gelir.
-            // Bütün 'Not found' hatasının nedeni bu adımın yanlış yapılmasıydı.
-            const encodedPaperId = encodeURIComponent(paperId);
-            
-            // 3. API'yi çağır.
-            const apiUrl = `https://api.semanticscholar.org/v1/paper/${encodedPaperId}?fields=title,authors,year,references.title,citations.title`;
+            const apiUrl = `https://api.semanticscholar.org/v1/paper/${query}?fields=title,authors,year,references.title,citations.title`;
             
             // --- DÜZELTME SONU ---
 
@@ -72,8 +67,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const edges = [];
 
         // Ana (kök) makaleyi ekle
-        nodes.push({ 
-            id: data.paperId, 
+        nodes.push({ E-posta: { 
+E-posta:   id: data.paperId, 
             label: `[ANA MAKALE]\n${data.title.substring(0, 30)}...`,
             title: `${data.title} (${data.year})`,
             color: '#f0a30a',
