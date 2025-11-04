@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Atıf Zinciri Görselleştirici</title>
+    
+    <link href="https://unpkg.com/vis-network/styles/vis-network.min.css" rel="stylesheet" type="text/css" />
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="container">
+        <h1>Atıf Zinciri Görselleştirici</h1>
+        <p>Bir makalenin kaynakçasını (References) ve ona atıf yapanları (Citations) keşfedin.</p>
+        
+        <div class="search-box">
+            <input type="text" id="paperInput" placeholder="Makale DOI numarası, ID veya başlık girin...">
+            <button id="searchButton">Ara</button>
+        </div>
+        
+        <div id="status">Lütfen bir makale arayın. (Örn: 10.1109/5.771073)</div>
+        
+        <div id="network"></div>
+    </div>
+
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    
+    <script src="script.js"></script>
+</body>
+</html>
