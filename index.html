@@ -1,281 +1,487 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>By Selim - Atıf Zinciri Görselleştirici</title>
-  <script src="https://unpkg.com/vis-network@9.1.2/dist/vis-network.min.js"></script>
-  <link rel="stylesheet" href="https://unpkg.com/vis-network@9.1.2/dist/vis-network.min.css" />
-  <style>
-    :root {
-      --bg: linear-gradient(135deg, #f7f9ff, #e9eeff);
-      --text: #111;
-      --card-bg: #fff;
-      --accent: #2b4eff;
-      --shadow: rgba(43, 78, 255, 0.15);
-    }
-    body.dark {
-      --bg: linear-gradient(135deg, #0f1116, #1a1d23);
-      --text: #eee;
-      --card-bg: #1f1f1f;
-      --accent: #00bfff;
-      --shadow: rgba(0, 191, 255, 0.25);
-    }
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>By Selim - Atıf Zinciri Görselleştirici</title>
 
-    body {
-      font-family: "Segoe UI", sans-serif;
-      background: var(--bg);
-      margin: 0;
-      padding: 0;
-      color: var(--text);
-      text-align: center;
-      transition: 0.5s;
-    }
+<!-- vis.js -->
+<script src="https://unpkg.com/vis-network@9.1.2/dist/vis-network.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/vis-network@9.1.2/dist/vis-network.min.css">
 
-    h1 {
-      margin-top: 20px;
-      color: var(--accent);
-      text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
-    }
+<!-- html2canvas + jspdf for export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
-    #controls {
-      margin: 20px;
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 10px;
-    }
-
-    input, button, select {
-      padding: 10px 14px;
-      font-size: 1em;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-      outline: none;
-    }
-
-    button {
-      background: var(--accent);
-      color: white;
-      border: none;
-      cursor: pointer;
-      box-shadow: 0 3px 6px var(--shadow);
-      transition: 0.3s;
-    }
-    button:hover { transform: translateY(-1px); opacity: 0.9; }
-
-    #network {
-      width: 90%;
-      height: 580px;
-      background: var(--card-bg);
-      margin: 0 auto;
-      border-radius: 15px;
-      box-shadow: 0 0 25px var(--shadow);
-      transition: all 0.4s;
-      position: relative;
-    }
-
-    #status { margin: 10px; font-weight: 500; }
-
-    #spinner {
-      display: none;
-      border: 4px solid #f3f3f3;
-      border-top: 4px solid var(--accent);
-      border-radius: 50%;
-      width: 30px;
-      height: 30px;
-      margin: 10px auto;
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    #notes {
-      background: rgba(43,78,255,0.07);
-      padding: 12px;
-      border-radius: 10px;
-      max-width: 720px;
-      margin: 15px auto;
-      font-size: 0.9em;
-      line-height: 1.5;
-    }
-
-    footer {
-      margin: 25px 0;
-      font-size: 0.8em;
-      color: gray;
-      opacity: 0.8;
-    }
-    footer a {
-      color: var(--accent);
-      text-decoration: none;
-    }
-  </style>
+<style>
+:root{
+  --bg: linear-gradient(135deg,#f7f9ff,#e9eeff);
+  --accent:#2b4eff; --shadow: rgba(43,78,255,0.15);
+  --card:#fff; --text:#111;
+}
+body.dark{ --bg: linear-gradient(135deg,#0f1116,#1a1d23); --accent:#00bfff; --card:#1f1f1f; --text:#eee; --shadow: rgba(0,191,255,0.18); }
+body{ margin:0; font-family:"Segoe UI",sans-serif; background:var(--bg); color:var(--text); transition:0.35s; text-align:center; }
+h1{ margin:18px 0; color:var(--accent); text-shadow:1px 1px 3px rgba(0,0,0,0.15);}
+#controls{ display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin:12px; align-items:center; }
+input,select,button{ padding:10px 12px; border-radius:8px; border:1px solid #ccc; font-size:14px; }
+button{ background:var(--accent); color:#fff; border:none; cursor:pointer; box-shadow:0 3px 6px var(--shadow); }
+#network{ width:90%; height:620px; margin:12px auto; border-radius:14px; background:var(--card); box-shadow:0 0 25px var(--shadow); position:relative; }
+#status{ margin:8px; font-weight:600; min-height:20px; }
+#notes{ background: rgba(43,78,255,0.07); max-width:760px; margin:8px auto; padding:12px; border-radius:10px; font-size:14px; text-align:left; line-height:1.5; }
+footer{ margin:18px 0; font-size:13px; color:gray; }
+footer a{ color:var(--accent); text-decoration:none; }
+#centerButton{ position:absolute; right:12px; top:12px; z-index:8; padding:6px 10px; border-radius:8px; border:none; background:var(--accent); color:#fff; cursor:pointer;}
+#spinner{ display:none; border:4px solid #f3f3f3; border-top:4px solid var(--accent); border-radius:50%; width:30px; height:30px; margin:6px auto; animation:spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.legend { display:flex; gap:10px; justify-content:center; margin-top:8px; font-size:13px; color: #333; }
+.legend .item { display:flex; gap:6px; align-items:center; }
+.legend .sw { width:14px; height:12px; border-radius:3px; display:inline-block }
+@media (max-width:720px){ #network{ height:520px; } input{ width:200px; } }
+.infoBox {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  z-index: 10;
+  background: rgba(255,255,255,0.95);
+  padding: 8px 10px;
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+  font-size: 13px;
+}
+.infoBox.dark { background: rgba(30,30,30,0.9); color: #eee; }
+</style>
 </head>
 <body>
-  <h1>By Selim - Atıf Zinciri Görselleştirici</h1>
+<h1>By Selim - Atıf Zinciri Görselleştirici</h1>
 
-  <div id="controls">
-    <input id="paperInput" type="text" placeholder="Makale DOI'si (örn: 10.1109/5.771073)" />
-    <button id="searchButton">Ara</button>
-    <button id="sampleButton">🎲 Örnek DOI</button>
-    <select id="yearFilter">
-      <option value="all">Tüm Yıllar</option>
-      <option value="2010">2010+</option>
-      <option value="2015">2015+</option>
-      <option value="2020">2020+</option>
-    </select>
-    <button id="saveButton">💾 Grafiği Kaydet</button>
-    <button id="themeButton">🌙 Gece Modu</button>
-  </div>
+<div id="controls">
+  <input id="paperInput" placeholder="DOI girin (ör: 10.1109/5.771073)" style="width:360px">
+  <button id="searchButton">Ara</button>
+  <button id="sampleButton">🎲 Örnek DOI</button>
 
-  <div id="spinner"></div>
-  <div id="status"></div>
-  <div id="network"></div>
+  <select id="yearFilter">
+    <option value="all">Tüm Yıllar</option>
+    <option value="2010">2010+</option>
+    <option value="2015">2015+</option>
+    <option value="2020">2020+</option>
+  </select>
 
-  <div id="notes">
-    🔹 <b>Mavi düğümler</b> kaynakçaları, <b>yeşil düğümler</b> atıf yapan makaleleri gösterir.<br>
-    🔹 Ana makale turuncu renktedir.<br>
-    🔹 Düğümlere tıklayarak makale sayfasını açabilirsiniz.<br>
-    🔹 Atıf sayısı yüksek makaleler daha büyük görünür.<br>
-    🔹 Çizgiler yönü gösterir: Kaynaktan hedefe doğru gider.<br>
-    🔹 Çubukların karışmaması için ağ otomatik olarak fiziksel yayılma dengesi uygular.
-  </div>
+  <button id="savePNG">💾 PNG</button>
+  <button id="savePDF">📄 PDF</button>
+  <button id="centerBtn">🧭 Ortala</button>
+  <button id="toggleEdges">🔗</button>
+  <button id="focusToggle">🎯 Odak</button>
+  <button id="themeBtn">🌙</button>
+  <button id="favBtn" title="Favori">⭐</button>
+  <select id="history" style="min-width:140px"></select>
+</div>
 
-  <footer>
-    © 2025 <b>Selim ÖMÜR</b> | 
-    <a href="mailto:omurselim@gmail.com">omurselim@gmail.com</a> |
-    Tüm hakları saklıdır. İzinsiz kopyalanamaz veya ticari amaçla kullanılamaz.
-  </footer>
+<div id="spinner"></div>
+<div id="status">Hazır — DOI girip Ara'ya basın.</div>
 
-  <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      const paperInput = document.getElementById("paperInput");
-      const searchButton = document.getElementById("searchButton");
-      const sampleButton = document.getElementById("sampleButton");
-      const saveButton = document.getElementById("saveButton");
-      const themeButton = document.getElementById("themeButton");
-      const yearFilter = document.getElementById("yearFilter");
-      const spinner = document.getElementById("spinner");
-      const status = document.getElementById("status");
-      const container = document.getElementById("network");
+<div id="network">
+  <div id="infoBox" class="infoBox" style="display:none"></div>
+</div>
 
-      let network = null;
-      let fullData = null;
+<div class="legend">
+  <div class="item"><span class="sw" style="background:#f0a30a"></span> Ana makale</div>
+  <div class="item"><span class="sw" style="background:#4285F4"></span> Kaynakça (references)</div>
+  <div class="item"><span class="sw" style="background:#34A853"></span> Atıflar (citations)</div>
+</div>
 
-      const options = {
-        nodes: {
-          shape: "dot",
-          font: { size: 14, color: "#222" },
-          borderWidth: 1.5
-        },
-        edges: {
-          width: 1.8,
-          smooth: { type: "dynamic", roundness: 0.3 },
-          arrows: { to: { enabled: true, scaleFactor: 0.6 } }
-        },
-        physics: {
-          barnesHut: {
-            gravitationalConstant: -30000,
-            springLength: 160,
-            springConstant: 0.02
-          },
-          stabilization: true
+<div id="notes">
+<strong>Kısa kullanım rehberi</strong><br>
+• DOI'yi yapıştırın ve <b>Ara</b> ya tıklayın.<br>
+• Uygulama öncelikle Semantic Scholar Graph API kullanır; tarayıcı-CORS engelini atlamak için birden fazla proxy denemesi yapılır. (Eğer proxylerden biri cevap verirse veri gelecektir.)<br>
+• Atıf/kaynak verileri sayfalar hâlinde çekilir; büyük makaleler için birkaç saniye sürebilir.<br>
+• Düğümler kesin formülle boyutlanır: <code>size = 5 + Math.sqrt(citationCount) * 4</code>.<br>
+• <b>🔗</b> ile kenarları gizleyebilir; <b>🎯 Odak</b> açıkken tıklanan düğüm merkeze gelir; <b>Ortala</b> her zaman grafiği sığdırır.<br>
+• Hatalar: eğer hâlâ "Failed to fetch" alırsanız konsolu (F12 → Console) kopyalayıp gönderin; alternatif proxy kurulumu öneririm.<br>
+</div>
+
+<footer>© 2025 <b>Selim ÖMÜR</b> — <a href="mailto:omurselim@gmail.com">omurselim@gmail.com</a> — İzinsiz kullanılamaz.</footer>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // DOM
+  const paperInput = document.getElementById('paperInput');
+  const searchButton = document.getElementById('searchButton');
+  const sampleButton = document.getElementById('sampleButton');
+  const yearFilter = document.getElementById('yearFilter');
+  const spinner = document.getElementById('spinner');
+  const status = document.getElementById('status');
+  const container = document.getElementById('network');
+  const infoBox = document.getElementById('infoBox');
+  const savePNG = document.getElementById('savePNG');
+  const savePDF = document.getElementById('savePDF');
+  const centerBtn = document.getElementById('centerBtn');
+  const toggleEdges = document.getElementById('toggleEdges');
+  const focusToggle = document.getElementById('focusToggle');
+  const themeBtn = document.getElementById('themeBtn');
+  const favBtn = document.getElementById('favBtn');
+  const historySelect = document.getElementById('history');
+
+  const proxies = [
+    '', // try direct first
+    'https://api.allorigins.win/raw?url=',
+    'https://corsproxy.io/?',
+    'https://cors.isomorphic-git.org/'
+  ];
+
+  let network = null;
+  let graphData = null;
+  let lastDOI = null;
+  let edgesShown = true;
+  let focusMode = false;
+
+  // options tuned to reduce overlap and improve readability
+  const options = {
+    nodes: { shape: 'dot', font: { size: 14 }, borderWidth: 1.5 },
+    edges: {
+      width: 1.6,
+      smooth: { type: 'dynamic' , forceDirection: 'none', roundness: 0.35 },
+      arrows: { to: { enabled: true, scaleFactor: 0.6 } },
+      color: { inherit: false }
+    },
+    physics: {
+      stabilization: true,
+      barnesHut: { gravitationalConstant: -25000, springLength: 140, springConstant: 0.02 }
+    },
+    interaction: { hover: true, tooltipDelay: 100 }
+  };
+
+  // history/fav
+  function addToHistory(doi){
+    if(!doi) return;
+    let h = JSON.parse(localStorage.getItem('sa_history')||'[]');
+    h = h.filter(x=>x!==doi);
+    h.unshift(doi);
+    if(h.length>30) h.pop();
+    localStorage.setItem('sa_history', JSON.stringify(h));
+    renderHistory();
+  }
+  function renderHistory(){
+    const h = JSON.parse(localStorage.getItem('sa_history')||'[]');
+    historySelect.innerHTML = '<option value="">Geçmiş</option>' + h.map(d=>`<option value="${d}">${d}</option>`).join('');
+  }
+  function toggleFav(doi){
+    if(!doi) return;
+    let f = JSON.parse(localStorage.getItem('sa_fav')||'[]');
+    if(f.includes(doi)){ f = f.filter(x=>x!==doi); favBtn.style.opacity=0.6; }
+    else { f.unshift(doi); favBtn.style.opacity=1; }
+    localStorage.setItem('sa_fav', JSON.stringify(f));
+  }
+  function updateFav(doi){
+    const f = JSON.parse(localStorage.getItem('sa_fav')||'[]');
+    favBtn.style.opacity = f.includes(doi)?1:0.6;
+  }
+  renderHistory();
+
+  // events
+  sampleButton.onclick = () => {
+    const samples = ["10.1109/5.771073","10.1038/nrn3241","10.1038/nature12373","10.48550/arXiv.1706.03762"];
+    paperInput.value = samples[Math.floor(Math.random()*samples.length)];
+    searchPaper();
+  };
+  searchButton.onclick = searchPaper;
+  historySelect.onchange = ()=> { if(historySelect.value){ paperInput.value = historySelect.value; searchPaper(); } };
+  themeBtn.onclick = ()=> { document.body.classList.toggle('dark'); infoBox.classList.toggle('dark'); themeBtn.textContent = document.body.classList.contains('dark') ? '☀️' : '🌙'; };
+  savePNG.onclick = () => exportPNG();
+  savePDF.onclick = () => exportPDF();
+  centerBtn.onclick = ()=> { if(network) network.fit({ animation:{ duration: 600 } }); };
+  toggleEdges.onclick = ()=> {
+    edgesShown = !edgesShown;
+    if(graphData) graphData.edges.getIds().forEach(id=> graphData.edges.update({ id, hidden: !edgesShown }));
+    toggleEdges.textContent = edgesShown ? '🔗' : '✂️';
+  };
+  focusToggle.onclick = ()=> { focusMode = !focusMode; focusToggle.style.opacity = focusMode?1:0.8; };
+  favBtn.onclick = ()=> { toggleFav(lastDOI); };
+
+  paperInput.addEventListener('keyup', e => { if(e.key==='Enter') searchPaper(); });
+
+  // small timeout helper for fetch
+  function fetchWithTimeout(resource, options = {}) {
+    const { timeout = 10000 } = options;
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    return fetch(resource, { ...options, signal: controller.signal })
+      .finally(() => clearTimeout(id));
+  }
+
+  // robust fetch trying proxies in order
+  async function robustFetch(url, opts = {}) {
+    let lastErr = null;
+    for(const p of proxies){
+      try{
+        const attemptUrl = p ? (p + encodeURIComponent(url)) : url;
+        const res = await fetchWithTimeout(attemptUrl, { timeout: 10000 });
+        if(!res.ok) { lastErr = new Error('HTTP ' + res.status + ' from ' + attemptUrl); continue; }
+        const contentType = res.headers.get('content-type') || '';
+        if(contentType.includes('application/json') || contentType.includes('text/json') || contentType.includes('application/octet-stream') || contentType.includes('text/plain')) {
+          const json = await res.json().catch(()=>null);
+          if(json) return json;
+        } else {
+          // some proxies return raw text JSON
+          const text = await res.text();
+          try { return JSON.parse(text); } catch(e){ return text; }
         }
-      };
+      } catch(e){
+        lastErr = e;
+        // try next proxy
+      }
+    }
+    // all failed
+    throw lastErr || new Error('All proxies failed');
+  }
 
-      themeButton.onclick = () => {
-        document.body.classList.toggle("dark");
-        themeButton.textContent = document.body.classList.contains("dark") ? "☀️ Gündüz Modu" : "🌙 Gece Modu";
-      };
+  // pagination fetch for S2 graph endpoints (limit, offset)
+  async function fetchAllPagesSS(endpointBase, itemKeyName){
+    const all = [];
+    const pageSize = 100;
+    let offset = 0;
+    while(true){
+      const pageUrl = endpointBase + `&limit=${pageSize}&offset=${offset}`;
+      const j = await robustFetch(pageUrl).catch(e => { throw e; });
+      // attempt to extract items
+      const items = j.data || j.results || j.citations || j.references || [];
+      if(!Array.isArray(items) || items.length === 0) break;
+      // normalize
+      items.forEach(it => {
+        // items may be { citingPaper: {...} } or { reference: {...} }
+        const unified = it.citingPaper || it.reference || it;
+        if(unified) all.push(unified);
+      });
+      if(items.length < pageSize) break;
+      offset += pageSize;
+      // gentle pause
+      await new Promise(r => setTimeout(r, 150));
+      // safety cap
+      if(offset > 5000) break;
+    }
+    return all;
+  }
 
-      sampleButton.onclick = () => {
-        const samples = ["10.1109/5.771073","10.1038/nature12373","10.48550/arXiv.1706.03762"];
-        paperInput.value = samples[Math.floor(Math.random() * samples.length)];
-        searchPaper();
-      };
+  // deterministic size
+  function sizeFromCitations(count){
+    const c = Math.max(0, Number(count) || 0);
+    return Math.round(5 + Math.sqrt(c) * 4);
+  }
 
-      yearFilter.onchange = () => { if(fullData) drawGraph(fullData); };
+  // main search
+  async function searchPaper(){
+    const doi = paperInput.value.trim();
+    if(!doi){ status.textContent = '⚠️ Lütfen DOI girin.'; return; }
+    lastDOI = doi;
+    updateFav(doi);
+    spinner.style.display = 'block';
+    status.textContent = '🔍 Veri çekiliyor... (Semantic Scholar, pagination ile). Lütfen bekleyin...';
 
-      saveButton.onclick = () => {
-        if (!network) return alert("Önce bir grafik oluşturun!");
-        const canvas = network.canvas.frame.canvas;
-        const a = document.createElement("a");
-        a.href = canvas.toDataURL("image/png");
-        a.download = "atif-grafik.png";
-        a.click();
-      };
-
-      paperInput.onkeyup = (e) => { if (e.key === "Enter") searchPaper(); };
-      searchButton.onclick = () => searchPaper();
-
-      async function searchPaper() {
-        const doi = paperInput.value.trim();
-        if (!doi) { status.textContent = "⚠️ Lütfen DOI girin."; return; }
-        spinner.style.display = "inline-block";
-        status.textContent = "🔍 Veriler getiriliyor...";
-
-        try {
-          const url = `https://api.semanticscholar.org/graph/v1/paper/DOI:${encodeURIComponent(doi)}?fields=title,year,authors,references.paperId,references.title,references.year,citations.paperId,citations.title,citations.year,citationCount,referenceCount`;
-          const proxyUrl = "https://cors.isomorphic-git.org/";
-          const res = await fetch(proxyUrl + url);
-          if (!res.ok) throw new Error("API erişimi başarısız");
-          const data = await res.json();
-          fullData = data;
-          drawGraph(data);
-          status.textContent = `✅ "${data.title}" başarıyla görselleştirildi.`;
-        } catch (err) {
-          status.textContent = "❌ Veri alınamadı. DOI'yi kontrol edin veya tekrar deneyin.";
-          console.error(err);
-        } finally {
-          spinner.style.display = "none";
-        }
+    try{
+      // 1 - main paper to get paperId
+      const mainUrl = `https://api.semanticscholar.org/graph/v1/paper/DOI:${encodeURIComponent(doi)}?fields=title,year,authors,doi,paperId,url,citationCount`;
+      const main = await robustFetch(mainUrl);
+      if(!main || !main.paperId){
+        throw new Error('Semantic Scholar ana makale bulunamadı.');
       }
 
-      function drawGraph(data) {
-        const yearLimit = yearFilter.value === "all" ? 0 : parseInt(yearFilter.value);
-        const nodes = [], edges = [];
-        const mainId = data.paperId || data.doi;
+      // 2 - fetch references and citations via pagination endpoints
+      const refsBase = `https://api.semanticscholar.org/graph/v1/paper/${encodeURIComponent(main.paperId)}/references?fields=reference.paperId,reference.title,reference.year,reference.doi,reference.citationCount`;
+      const citsBase = `https://api.semanticscholar.org/graph/v1/paper/${encodeURIComponent(main.paperId)}/citations?fields=citingPaper.paperId,citingPaper.title,citingPaper.year,citingPaper.doi,citingPaper.citationCount`;
 
-        nodes.push({
-          id: mainId,
-          label: `[ANA]\n${data.title.substring(0, 45)}...`,
-          title: `${data.title}\nYıl: ${data.year}\nAtıf: ${data.citationCount || "?"}`,
-          color: "#f0a30a",
-          size: 40
-        });
+      // Attempt to fetch both concurrently but handle failures individually
+      const [refs, cits] = await Promise.all([
+        fetchAllPagesSS(refsBase, 'references').catch(e => { console.warn('refs failed', e); return []; }),
+        fetchAllPagesSS(citsBase, 'citations').catch(e => { console.warn('cits failed', e); return []; })
+      ]);
 
-        const addNode = (list, color, direction) => {
-          list.forEach(item => {
-            if (!item || (item.year && item.year < yearLimit)) return;
-            const size = Math.max(10, Math.min(25, (item.citationCount || 5) / 5 + 12));
-            nodes.push({
-              id: item.paperId,
-              label: (item.title || "Başlık yok").substring(0, 45),
-              color,
-              title: `${item.title}\nYıl: ${item.year || "?"}`,
-              url: `https://www.semanticscholar.org/paper/${item.paperId}`,
-              size
+      // if both empty (rare), fallback to OpenAlex for expanded coverage
+      let data = {
+        title: main.title,
+        year: main.year,
+        doi: main.doi,
+        paperId: main.paperId,
+        url: main.url || (main.doi ? `https://doi.org/${main.doi}` : null),
+        citationCount: main.citationCount || 0,
+        references: refs.map(r => ({
+          title: r.title || r.reference?.title || 'Başlık yok',
+          paperId: r.paperId || r.reference?.paperId || r.reference?.doi || null,
+          doi: r.doi || r.reference?.doi || null,
+          year: r.year || r.reference?.year || null,
+          citationCount: r.citationCount || r.reference?.citationCount || 0,
+          url: r.url || null
+        })),
+        citations: cits.map(c => {
+          const p = c.citingPaper || c;
+          return {
+            title: p.title || 'Başlık yok',
+            paperId: p.paperId || p.doi || null,
+            doi: p.doi || null,
+            year: p.year || null,
+            citationCount: p.citationCount || 0,
+            url: p.url || null
+          };
+        })
+      };
+
+      // If both lists are suspiciously empty (0) then try OpenAlex as fallback for coverage
+      if(data.references.length === 0 && data.citations.length === 0){
+        try{
+          const openalexUrl = `https://api.openalex.org/works/https://doi.org/${encodeURIComponent(doi)}`;
+          const ox = await robustFetch(openalexUrl).catch(()=>null);
+          if(ox && ox.id){
+            // build data from OpenAlex
+            data = {
+              title: ox.title || data.title,
+              year: ox.publication_year || data.year,
+              doi: doi,
+              paperId: ox.id,
+              url: ox.open_access?.oa_url || `https://openalex.org/${ox.id.split('/').pop()}`,
+              citationCount: ox.cited_by_count || data.citationCount || 0,
+              references: [],
+              citations: []
+            };
+            // referenced works (limited)
+            const refsOX = (ox.referenced_works || []).slice(0,200);
+            const refFetches = refsOX.map(id => robustFetch(id).catch(()=>null));
+            const refsData = await Promise.all(refFetches);
+            refsData.forEach(r=>{
+              if(!r) return;
+              data.references.push({
+                title: r.title, paperId: r.id, doi: r.doi || null, year: r.publication_year, citationCount: r.cited_by_count || 0, url: r.primary_location?.source_url || null
+              });
             });
-            edges.push(direction === "ref" ? 
-              { from: mainId, to: item.paperId, color: { color: "#4285F4" } } :
-              { from: item.paperId, to: mainId, color: { color: "#34A853" } });
-          });
-        };
-
-        addNode(data.references || [], "#4285F4", "ref");
-        addNode(data.citations || [], "#34A853", "cit");
-
-        const graphData = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
-        network = new vis.Network(container, graphData, options);
-
-        network.on("click", p => {
-          if (p.nodes.length > 0) {
-            const node = graphData.nodes.get(p.nodes[0]);
-            if (node.url) window.open(node.url, "_blank");
+            // citing works
+            const citesResp = await robustFetch(`https://api.openalex.org/works?filter=cites:${encodeURIComponent(ox.id)}&per_page=200`).catch(()=>null);
+            if(citesResp && Array.isArray(citesResp.results)){
+              citesResp.results.forEach(r => data.citations.push({
+                title: r.title, paperId: r.id, doi: r.doi || null, year: r.publication_year, citationCount: r.cited_by_count || 0, url: r.primary_location?.source_url || null
+              }));
+            }
           }
+        } catch(e){ console.warn('OpenAlex fallback failed', e); }
+      }
+
+      // store history & update fav
+      addToHistory(doi);
+      lastDOI = doi;
+      updateFav(doi);
+
+      // draw
+      drawGraph(data);
+      status.textContent = `✅ "${data.title}" gösterildi. (refs: ${data.references.length}, cits: ${data.citations.length})`;
+    } catch(err){
+      console.error('search error', err);
+      status.textContent = `❌ Veri alınamadı: ${err.message || err}. (Konsolu kontrol et.)`;
+    } finally {
+      spinner.style.display = 'none';
+    }
+  } // end searchPaper
+
+  // draw graph preserving old look, with deterministic sizes
+  function drawGraph(data){
+    fullData = data;
+    const yearLimit = yearFilter.value === 'all' ? 0 : parseInt(yearFilter.value);
+    const nodes = [], edges = [];
+
+    const mainId = data.paperId || data.doi || data.title;
+    const mainSize = sizeFromCitations(data.citationCount || 0);
+
+    nodes.push({
+      id: mainId,
+      label: `[ANA]\n${(data.title||'Başlık').substring(0,40)}...`,
+      title: `${data.title || ''}\nYıl:${data.year||'?' }\nAtıf:${data.citationCount||0}`,
+      color: '#f0a30a',
+      size: mainSize,
+      url: data.url || (data.doi ? `https://doi.org/${data.doi}` : null)
+    });
+
+    const add = (list, color, dir) => {
+      (list||[]).forEach(item=>{
+        if(item.year && yearLimit && item.year < yearLimit) return;
+        const id = item.paperId || item.doi || (item.title + '::' + Math.random().toString(36).slice(2,6));
+        const s = sizeFromCitations(item.citationCount || 0);
+        nodes.push({
+          id,
+          label: (item.title||'Başlık').substring(0,45),
+          title: `${item.title||''}\nYıl:${item.year||'?'}\nAtıf:${item.citationCount||0}`,
+          color,
+          size: s,
+          url: item.doi ? `https://doi.org/${item.doi}` : (item.url || null)
         });
+        const edgeColor = color === '#4285F4' ? '#4285F4' : '#34A853';
+        edges.push(dir==='ref' ? { from: mainId, to: id, color: { color: edgeColor }, arrows: { to: { enabled: true } } } : { from: id, to: mainId, color: { color: edgeColor }, arrows: { to: { enabled: true } } });
+      });
+    };
+
+    add(data.references || [], '#4285F4', 'ref');
+    add(data.citations || [], '#34A853', 'cit');
+
+    // dedupe nodes by id
+    const unique = {};
+    nodes.forEach(n=> unique[n.id] = n);
+    const finalNodes = Object.values(unique);
+
+    graphData = { nodes: new vis.DataSet(finalNodes), edges: new vis.DataSet(edges) };
+    if(network) network.destroy();
+    network = new vis.Network(container, graphData, options);
+
+    // stop physics when stable
+    network.on('stabilizationIterationsDone', () => {
+      try{ network.physics.stop(); }catch(e){}
+    });
+
+    // click: show info box (small) and open link on doubleclick / with focus mode
+    network.on('click', params => {
+      if(params.nodes.length){
+        const nid = params.nodes[0];
+        const node = graphData.nodes.get(nid);
+        // show infoBox near top-left
+        infoBox.style.display = 'block';
+        infoBox.innerHTML = `<strong>${node.label}</strong><br>${(node.title||'')}<br>${node.url? `<a href="${node.url}" target="_blank">Makale sayfasına git</a>` : ''}`;
+        // focus mode
+        if(focusMode){
+          network.focus(nid, { scale: 1.2, animation: { duration: 600 } });
+        }
+      } else {
+        infoBox.style.display = 'none';
       }
     });
-  </script>
+
+    // double click opens link if available
+    network.on('doubleClick', params => {
+      if(params.nodes.length){
+        const node = graphData.nodes.get(params.nodes[0]);
+        if(node && node.url) window.open(node.url, '_blank');
+      }
+    });
+
+    // initial edge hide/show
+    graphData.edges.getIds().forEach(id => graphData.edges.update({ id, hidden: !edgesShown }));
+  }
+
+  // export helpers
+  function exportPNG(){
+    if(!network) return alert('Önce grafik oluşturun!');
+    const canvas = network.canvas.frame.canvas;
+    const dataUrl = canvas.toDataURL('image/png');
+    const a = document.createElement('a'); a.href = dataUrl; a.download = 'atif-grafik.png'; a.click();
+  }
+  function exportPDF(){
+    if(!network) return alert('Önce grafik oluşturun!');
+    const canvas = network.canvas.frame.canvas;
+    const imgData = canvas.toDataURL('image/png');
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation:'landscape' });
+    const w = pdf.internal.pageSize.getWidth();
+    const h = pdf.internal.pageSize.getHeight();
+    pdf.addImage(imgData, 'PNG', 10, 10, w-20, h-20);
+    pdf.save('atif-grafik.pdf');
+  }
+
+  // utility: fetch with timeout already above
+  // expose for debug
+  window.searchPaper = searchPaper;
+});
+</script>
 </body>
 </html>
