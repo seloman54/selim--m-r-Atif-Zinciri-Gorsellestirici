@@ -1,385 +1,281 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>By Selim - Atıf Zinciri Görselleştirici</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>By Selim - Atıf Zinciri Görselleştirici</title>
+  <script src="https://unpkg.com/vis-network@9.1.2/dist/vis-network.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/vis-network@9.1.2/dist/vis-network.min.css" />
+  <style>
+    :root {
+      --bg: linear-gradient(135deg, #f7f9ff, #e9eeff);
+      --text: #111;
+      --card-bg: #fff;
+      --accent: #2b4eff;
+      --shadow: rgba(43, 78, 255, 0.15);
+    }
+    body.dark {
+      --bg: linear-gradient(135deg, #0f1116, #1a1d23);
+      --text: #eee;
+      --card-bg: #1f1f1f;
+      --accent: #00bfff;
+      --shadow: rgba(0, 191, 255, 0.25);
+    }
 
-<!-- vis.js -->
-<script src="https://unpkg.com/vis-network@9.1.2/dist/vis-network.min.js"></script>
-<link rel="stylesheet" href="https://unpkg.com/vis-network@9.1.2/dist/vis-network.min.css">
+    body {
+      font-family: "Segoe UI", sans-serif;
+      background: var(--bg);
+      margin: 0;
+      padding: 0;
+      color: var(--text);
+      text-align: center;
+      transition: 0.5s;
+    }
 
-<!-- html2canvas + jspdf for export -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    h1 {
+      margin-top: 20px;
+      color: var(--accent);
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+    }
 
-<style>
-:root{
-  --bg: linear-gradient(135deg,#f7f9ff,#e9eeff);
-  --accent:#2b4eff; --shadow: rgba(43,78,255,0.15);
-  --card:#fff; --text:#111;
-}
-body.dark{ --bg: linear-gradient(135deg,#0f1116,#1a1d23); --accent:#00bfff; --card:#1f1f1f; --text:#eee; --shadow: rgba(0,191,255,0.18); }
-body{ margin:0; font-family:"Segoe UI",sans-serif; background:var(--bg); color:var(--text); transition:0.35s; text-align:center; }
-h1{ margin:18px 0; color:var(--accent); text-shadow:1px 1px 3px rgba(0,0,0,0.15);}
-#controls{ display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin:12px; align-items:center; }
-input,select,button{ padding:10px 12px; border-radius:8px; border:1px solid #ccc; font-size:14px; }
-button{ background:var(--accent); color:#fff; border:none; cursor:pointer; box-shadow:0 3px 6px var(--shadow); }
-#network{ width:90%; height:620px; margin:12px auto; border-radius:14px; background:var(--card); box-shadow:0 0 25px var(--shadow); position:relative; }
-#status{ margin:8px; font-weight:600; min-height:20px; }
-#notes{ background: rgba(43,78,255,0.07); max-width:760px; margin:8px auto; padding:12px; border-radius:10px; font-size:14px; text-align:left; }
-footer{ margin:18px 0; font-size:13px; color:gray; }
-footer a{ color:var(--accent); text-decoration:none; }
-#centerButton{ position:absolute; right:12px; top:12px; z-index:8; padding:6px 10px; border-radius:8px; border:none; background:var(--accent); color:#fff; cursor:pointer;}
-#spinner{ display:none; border:4px solid #f3f3f3; border-top:4px solid var(--accent); border-radius:50%; width:30px; height:30px; margin:10px auto; animation:spin 1s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-#controls .small { padding:6px 8px; font-size:0.95rem; }
-.toggle-edges { opacity:0.9; }
-@media (max-width:720px){ #network{ height:520px; } input{ width:200px; } }
-</style>
+    #controls {
+      margin: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    input, button, select {
+      padding: 10px 14px;
+      font-size: 1em;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      outline: none;
+    }
+
+    button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 3px 6px var(--shadow);
+      transition: 0.3s;
+    }
+    button:hover { transform: translateY(-1px); opacity: 0.9; }
+
+    #network {
+      width: 90%;
+      height: 580px;
+      background: var(--card-bg);
+      margin: 0 auto;
+      border-radius: 15px;
+      box-shadow: 0 0 25px var(--shadow);
+      transition: all 0.4s;
+      position: relative;
+    }
+
+    #status { margin: 10px; font-weight: 500; }
+
+    #spinner {
+      display: none;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid var(--accent);
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      margin: 10px auto;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #notes {
+      background: rgba(43,78,255,0.07);
+      padding: 12px;
+      border-radius: 10px;
+      max-width: 720px;
+      margin: 15px auto;
+      font-size: 0.9em;
+      line-height: 1.5;
+    }
+
+    footer {
+      margin: 25px 0;
+      font-size: 0.8em;
+      color: gray;
+      opacity: 0.8;
+    }
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+  </style>
 </head>
 <body>
   <h1>By Selim - Atıf Zinciri Görselleştirici</h1>
 
   <div id="controls">
-    <input id="paperInput" placeholder="DOI girin (örn: 10.1109/5.771073)" style="width:360px">
+    <input id="paperInput" type="text" placeholder="Makale DOI'si (örn: 10.1109/5.771073)" />
     <button id="searchButton">Ara</button>
     <button id="sampleButton">🎲 Örnek DOI</button>
-
-    <select id="yearFilter" class="small">
+    <select id="yearFilter">
       <option value="all">Tüm Yıllar</option>
       <option value="2010">2010+</option>
       <option value="2015">2015+</option>
       <option value="2020">2020+</option>
     </select>
-
-    <div class="side-controls">
-      <button id="savePNG" class="small">💾 PNG</button>
-      <button id="savePDF" class="small">📄 PDF</button>
-      <button id="themeBtn" class="small">🌙</button>
-      <button id="toggleEdges" class="small toggle-edges" title="Bağlantıları gizle/göster">🔗</button>
-      <button id="focusBtn" class="small" title="Odak modu (tıklayınca merkezde göster)">🎯 Odak</button>
-      <button id="favoriteBtn" class="small" title="Favorilere ekle">⭐</button>
-      <select id="history" title="Arama geçmişi" class="small"></select>
-    </div>
+    <button id="saveButton">💾 Grafiği Kaydet</button>
+    <button id="themeButton">🌙 Gece Modu</button>
   </div>
 
   <div id="spinner"></div>
-  <div id="status">Hazır — DOI girip Ara'ya basın.</div>
-
-  <div id="network">
-    <button id="centerButton">Ortala</button>
-  </div>
+  <div id="status"></div>
+  <div id="network"></div>
 
   <div id="notes">
-    <strong>Kısa kullanım ve önemli notlar</strong><br>
-    • DOI'yi kutuya yapıştırın (ör. <code>10.1109/5.771073</code>) ve <b>Ara</b> butonuna tıklayın.<br>
-    • Uygulama **yalnızca Semantic Scholar Graph API**'sini kullanır; tarayıcı CORS kısıtları için istekler güvenilir bir proxy üzerinden geçer. <br>
-    • Tüm atıf (citations) ve kaynakça (references) verileri **sayfa sayfa** (pagination) çekilir — büyük makaleler için birkaç tur sürebilir ancak eksiksiz listeleme hedeflenir.<br>
-    • Ortadaki turuncu düğüm kök makaledir. Mavi düğümler kaynakça (references), yeşiller makaleye atıf yapanlardır (citations).<br>
-    • Düğümlerin boyutu kesin formülle hesaplanır: <code>size = 5 + Math.sqrt(citationCount) * 4</code> — her atıf sayısı için deterministik (aynı veride aynı boyut).<br>
-    • "🔗" butonuyla bağlantıları gizleyip sade görünüm alabilirsiniz. "🎯 Odak" modunu açınca tıklanan düğümler merkeze alınır.<br>
-    • PNG / PDF olarak kaydedebilir, arama geçmişi ve favorileri kullanabilirsiniz.<br>
-    • Geri bildirim & hata raporları: <a href="mailto:omurselim@gmail.com">omurselim@gmail.com</a>.<br>
+    🔹 <b>Mavi düğümler</b> kaynakçaları, <b>yeşil düğümler</b> atıf yapan makaleleri gösterir.<br>
+    🔹 Ana makale turuncu renktedir.<br>
+    🔹 Düğümlere tıklayarak makale sayfasını açabilirsiniz.<br>
+    🔹 Atıf sayısı yüksek makaleler daha büyük görünür.<br>
+    🔹 Çizgiler yönü gösterir: Kaynaktan hedefe doğru gider.<br>
+    🔹 Çubukların karışmaması için ağ otomatik olarak fiziksel yayılma dengesi uygular.
   </div>
 
-  <footer>© 2025 <b>Selim ÖMÜR</b> — <a href="mailto:omurselim@gmail.com">omurselim@gmail.com</a> — İzinsiz kullanılamaz.</footer>
+  <footer>
+    © 2025 <b>Selim ÖMÜR</b> | 
+    <a href="mailto:omurselim@gmail.com">omurselim@gmail.com</a> |
+    Tüm hakları saklıdır. İzinsiz kopyalanamaz veya ticari amaçla kullanılamaz.
+  </footer>
 
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-  // DOM
-  const paperInput = document.getElementById('paperInput');
-  const searchButton = document.getElementById('searchButton');
-  const sampleButton = document.getElementById('sampleButton');
-  const yearFilter = document.getElementById('yearFilter');
-  const spinner = document.getElementById('spinner');
-  const status = document.getElementById('status');
-  const container = document.getElementById('network');
-  const centerButton = document.getElementById('centerButton');
-  const themeBtn = document.getElementById('themeBtn');
-  const savePNG = document.getElementById('savePNG');
-  const savePDF = document.getElementById('savePDF');
-  const toggleEdgesBtn = document.getElementById('toggleEdges');
-  const focusBtn = document.getElementById('focusBtn');
-  const favoriteBtn = document.getElementById('favoriteBtn');
-  const historySelect = document.getElementById('history');
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const paperInput = document.getElementById("paperInput");
+      const searchButton = document.getElementById("searchButton");
+      const sampleButton = document.getElementById("sampleButton");
+      const saveButton = document.getElementById("saveButton");
+      const themeButton = document.getElementById("themeButton");
+      const yearFilter = document.getElementById("yearFilter");
+      const spinner = document.getElementById("spinner");
+      const status = document.getElementById("status");
+      const container = document.getElementById("network");
 
-  // Proxy (Semantic Scholar via proxy to bypass CORS in browser)
-  const proxy = 'https://api.allorigins.win/raw?url=';
+      let network = null;
+      let fullData = null;
 
-  // vis options
-  const options = {
-    nodes: { shape: 'dot', font: { size: 14 }, borderWidth: 2 },
-    edges: { width: 2, color: { color: '#999' }, arrows: { to: { enabled: true, scaleFactor: 0.6 } } },
-    physics: { stabilization: true, solver: 'barnesHut', barnesHut: { gravitationalConstant: -2000 } },
-    interaction: { hover: true, multiselect: false, dragView: true }
-  };
-
-  let network = null;
-  let graphData = null;
-  let lastDOI = null;
-  let edgesVisible = true;
-  let focusMode = false;
-
-  // history & favorites (localStorage)
-  function addToHistory(doi){
-    if(!doi) return;
-    let h = JSON.parse(localStorage.getItem('sa_history')||'[]');
-    h = h.filter(x=>x!==doi);
-    h.unshift(doi);
-    if(h.length>30) h.pop();
-    localStorage.setItem('sa_history', JSON.stringify(h));
-    renderHistory();
-  }
-  function renderHistory(){
-    const h = JSON.parse(localStorage.getItem('sa_history')||'[]');
-    historySelect.innerHTML = '<option value="">Geçmiş</option>' + h.map(d=>`<option value="${d}">${d}</option>`).join('');
-  }
-  function toggleFavorite(doi){
-    if(!doi) return;
-    let f = JSON.parse(localStorage.getItem('sa_fav')||'[]');
-    if(f.includes(doi)){ f = f.filter(x=>x!==doi); favoriteBtn.style.opacity=0.6; }
-    else { f.unshift(doi); favoriteBtn.style.opacity=1; }
-    localStorage.setItem('sa_fav', JSON.stringify(f));
-  }
-  function updateFavoriteBtn(doi){
-    const f = JSON.parse(localStorage.getItem('sa_fav')||'[]');
-    favoriteBtn.style.opacity = f.includes(doi)?1:0.6;
-  }
-
-  renderHistory();
-  historySelect.addEventListener('change', ()=>{ if(historySelect.value) { paperInput.value = historySelect.value; searchPaper(); }});
-
-  // UI events
-  sampleButton.onclick = ()=> {
-    const samples = ["10.1109/5.771073","10.1038/nrn3241","10.1038/nature12373","10.48550/arXiv.1706.03762"];
-    paperInput.value = samples[Math.floor(Math.random()*samples.length)];
-    searchPaper();
-  };
-  themeBtn.onclick = ()=> { document.body.classList.toggle('dark'); themeBtn.textContent = document.body.classList.contains('dark') ? '☀️' : '🌙'; };
-  centerButton.onclick = ()=> { if(network) network.fit({ animation: { duration: 600 } }); };
-  toggleEdgesBtn.onclick = ()=>{
-    edgesVisible = !edgesVisible;
-    if(graphData) graphData.edges.getIds().forEach(id=> graphData.edges.update({ id, hidden: !edgesVisible }));
-    toggleEdgesBtn.textContent = edgesVisible ? '🔗' : '✂️';
-  };
-  focusBtn.onclick = ()=> { focusMode = !focusMode; focusBtn.style.opacity = focusMode ? 1 : 0.8; };
-
-  savePNG.onclick = async () => {
-    if(!network) return alert('Önce bir grafik oluşturun!');
-    const canvas = network.canvas.frame.canvas;
-    const dataUrl = canvas.toDataURL('image/png');
-    const a = document.createElement('a'); a.href = dataUrl; a.download = 'atif-grafik.png'; a.click();
-  };
-
-  savePDF.onclick = async () => {
-    if(!network) return alert('Önce bir grafik oluşturun!');
-    const canvas = network.canvas.frame.canvas;
-    const imgData = canvas.toDataURL('image/png');
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF({ orientation:'landscape' });
-    const w = pdf.internal.pageSize.getWidth();
-    const h = pdf.internal.pageSize.getHeight();
-    pdf.addImage(imgData, 'PNG', 10, 10, w-20, h-20);
-    pdf.save('atif-grafik.pdf');
-  };
-
-  favoriteBtn.onclick = ()=> { toggleFavorite(lastDOI); };
-
-  paperInput.addEventListener('keyup', e => { if(e.key==='Enter') searchPaper(); });
-  searchButton.onclick = searchPaper;
-
-  // deterministic size formula: size = 5 + sqrt(citationCount)*4
-  function sizeFromCitations(count){
-    const c = Math.max(0, Number(count) || 0);
-    return Math.round(5 + Math.sqrt(c) * 4);
-  }
-
-  // fetch all pages for citations or references (limit 100 per page) — returns array
-  async function fetchAllPages(apiUrlBase){
-    const results = [];
-    const limit = 100;
-    let offset = 0;
-    while(true){
-      const pageUrl = `${apiUrlBase}&limit=${limit}&offset=${offset}`;
-      const raw = await fetch(proxy + encodeURIComponent(pageUrl));
-      if(!raw.ok) throw new Error('Proxy/API hatası: ' + raw.status);
-      const j = await raw.json().catch(()=>null);
-      if(!j) break;
-      // Semantic Scholar returns data in .data or .citations? For /paper/{id}/citations endpoint it's { data: [...] }
-      const pageItems = j.data || j.citations || j.references || j.results || [];
-      if(!Array.isArray(pageItems)) break;
-      if(pageItems.length === 0) break;
-      // adapt shape: when endpoint /paper/{id}/citations returns objects with "citingPaper"
-      pageItems.forEach(it => {
-        // unify: citation object may be { citingPaper: { paperId, title, ... } } or direct
-        const unified = it.citingPaper || it.referencedPaper || it.paper || it;
-        results.push(unified);
-      });
-      if(pageItems.length < limit) break;
-      offset += limit;
-      // small delay to be nice to API
-      await new Promise(r=>setTimeout(r, 200));
-      // safety cap to avoid infinite loop
-      if(offset > 2000) break;
-    }
-    return results;
-  }
-
-  // main search: Semantic Scholar primary + paging for citations/references
-  async function searchPaper(){
-    const doi = paperInput.value.trim();
-    if(!doi){ status.textContent = '⚠️ Lütfen DOI girin.'; return; }
-    lastDOI = doi; updateFavoriteBtn(doi);
-    spinner.style.display = 'block';
-    status.textContent = '🔍 Veri çekiliyor... (Semantic Scholar, sayfalar halinde). Bu biraz sürebilir.';
-    container.classList.add('loading');
-
-    try {
-      // 1) Get main paper to learn paperId and citationCount
-      const baseUrl = `https://api.semanticscholar.org/graph/v1/paper/DOI:${encodeURIComponent(doi)}`;
-      const fields = '?fields=title,year,authors,doi,paperId,url,citationCount';
-      const mainRaw = await fetch(proxy + encodeURIComponent(baseUrl + fields));
-      if(!mainRaw.ok) throw new Error('Semantic Scholar ana makale isteği başarısız');
-      const main = await mainRaw.json();
-      if(!main || !main.paperId){
-        throw new Error('Makale bulunamadı (Semantic Scholar).');
-      }
-
-      // 2) Fetch ALL references (pagination) using /paper/{paperId}/references
-      const refsUrlBase = `https://api.semanticscholar.org/graph/v1/paper/${encodeURIComponent(main.paperId)}/references?fields=reference.paperId,reference.title,reference.year,reference.doi,reference.authors,reference.citationCount`;
-      const references = await fetchAllPages(refsUrlBase);
-
-      // 3) Fetch ALL citations (pagination) using /paper/{paperId}/citations
-      const citsUrlBase = `https://api.semanticscholar.org/graph/v1/paper/${encodeURIComponent(main.paperId)}/citations?fields=citingPaper.paperId,citingPaper.title,citingPaper.year,citingPaper.doi,citingPaper.authors,citingPaper.citationCount`;
-      const citations = await fetchAllPages(citsUrlBase);
-
-      // unify minimal fields into arrays
-      const refsUnified = references.map(r => ({
-        title: r.title || r.reference?.title || 'Başlık yok',
-        paperId: r.paperId || (r.reference && r.reference.paperId) || r.reference?.paperId,
-        doi: r.doi || r.reference?.doi || null,
-        year: r.year || r.reference?.year || null,
-        citationCount: r.citationCount || r.reference?.citationCount || 0,
-        url: r.url || (r.reference && r.reference.url) || null
-      })).filter(x=>x.title);
-
-      const citsUnified = citations.map(r => {
-        const p = r.citingPaper || r;
-        return {
-          title: p.title || 'Başlık yok',
-          paperId: p.paperId || null,
-          doi: p.doi || null,
-          year: p.year || null,
-          citationCount: p.citationCount || 0,
-          url: p.url || null
-        };
-      }).filter(x=>x.title);
-
-      // build merged data
-      const data = {
-        title: main.title,
-        year: main.year,
-        doi: main.doi,
-        paperId: main.paperId,
-        citationCount: main.citationCount || 0,
-        url: main.url || (main.doi? `https://doi.org/${main.doi}`: null),
-        references: refsUnified,
-        citations: citsUnified
+      const options = {
+        nodes: {
+          shape: "dot",
+          font: { size: 14, color: "#222" },
+          borderWidth: 1.5
+        },
+        edges: {
+          width: 1.8,
+          smooth: { type: "dynamic", roundness: 0.3 },
+          arrows: { to: { enabled: true, scaleFactor: 0.6 } }
+        },
+        physics: {
+          barnesHut: {
+            gravitationalConstant: -30000,
+            springLength: 160,
+            springConstant: 0.02
+          },
+          stabilization: true
+        }
       };
 
-      // store history
-      addToHistory(doi);
+      themeButton.onclick = () => {
+        document.body.classList.toggle("dark");
+        themeButton.textContent = document.body.classList.contains("dark") ? "☀️ Gündüz Modu" : "🌙 Gece Modu";
+      };
 
-      // draw
-      fullDraw(data);
-      status.textContent = `✅ "${data.title}" (refs: ${data.references.length}, cits: ${data.citations.length}) gösterildi.`;
-    } catch (err){
-      console.error(err);
-      status.textContent = `❌ Hata: ${err.message || err}.`;
-    } finally {
-      spinner.style.display = 'none';
-      container.classList.remove('loading');
-    }
-  } // end searchPaper
+      sampleButton.onclick = () => {
+        const samples = ["10.1109/5.771073","10.1038/nature12373","10.48550/arXiv.1706.03762"];
+        paperInput.value = samples[Math.floor(Math.random() * samples.length)];
+        searchPaper();
+      };
 
-  // drawing with deterministic sizes and features
-  function fullDraw(data){
-    const yearLimit = yearFilter.value === 'all' ? 0 : parseInt(yearFilter.value);
-    const nodes = [], edges = [];
+      yearFilter.onchange = () => { if(fullData) drawGraph(fullData); };
 
-    const mainId = data.paperId || data.doi || data.title;
-    const mainSize = sizeFromCitations(data.citationCount || 0);
+      saveButton.onclick = () => {
+        if (!network) return alert("Önce bir grafik oluşturun!");
+        const canvas = network.canvas.frame.canvas;
+        const a = document.createElement("a");
+        a.href = canvas.toDataURL("image/png");
+        a.download = "atif-grafik.png";
+        a.click();
+      };
 
-    nodes.push({
-      id: mainId,
-      label: `[ANA]\n${(data.title||'Başlık').substring(0,40)}...`,
-      title: `${data.title || ''}\n(${data.year || '?'})\nAtıf sayısı: ${data.citationCount||0}`,
-      color: '#f0a30a',
-      size: mainSize,
-      url: data.url || (data.doi?`https://doi.org/${data.doi}`:null)
-    });
+      paperInput.onkeyup = (e) => { if (e.key === "Enter") searchPaper(); };
+      searchButton.onclick = () => searchPaper();
 
-    const addList = (list, color, dir) => {
-      (list||[]).forEach(item=>{
-        if(item.year && yearLimit && item.year < yearLimit) return;
-        const id = item.paperId || item.doi || (item.title + Math.random().toString(36).slice(2,8));
-        const s = sizeFromCitations(item.citationCount || 0);
-        nodes.push({
-          id,
-          label: (item.title || 'Başlık yok').substring(0,40),
-          title: `${item.title || ''}\nYıl: ${item.year || '?'}\nAtıf sayısı: ${item.citationCount || 0}`,
-          color,
-          size: s,
-          url: item.doi ? `https://doi.org/${item.doi}` : (item.url || null)
-        });
-        edges.push(dir === 'ref' ? { from: mainId, to: id } : { from: id, to: mainId });
-      });
-    };
+      async function searchPaper() {
+        const doi = paperInput.value.trim();
+        if (!doi) { status.textContent = "⚠️ Lütfen DOI girin."; return; }
+        spinner.style.display = "inline-block";
+        status.textContent = "🔍 Veriler getiriliyor...";
 
-    addList(data.references || [], '#4285F4', 'ref');
-    addList(data.citations || [], '#34A853', 'cit');
-
-    // Deduplicate nodes by id, keep last
-    const uniq = {};
-    nodes.forEach(n=>{ uniq[n.id] = n; });
-    const finalNodes = Object.values(uniq);
-
-    graphData = { nodes: new vis.DataSet(finalNodes), edges: new vis.DataSet(edges) };
-    if(network) network.destroy();
-    network = new vis.Network(container, graphData, options);
-
-    // when stabilized -> stop physics to save CPU (auto stop)
-    network.on('stabilizationIterationsDone', () => network.physics.stop());
-
-    // click handling: focus mode and open url
-    network.on('click', params=>{
-      if(params.nodes.length){
-        const nodeId = params.nodes[0];
-        const node = graphData.nodes.get(nodeId);
-        if(focusMode){
-          network.focus(nodeId, { scale: 1.2, animation: { duration: 600 } });
-        } else {
-          // open url if exists, otherwise open Semantic Scholar paper page if paperId present
-          if(node && node.url) window.open(node.url, '_blank');
-          else if(node && nodeId && nodeId.startsWith('http')) window.open(nodeId, '_blank');
+        try {
+          const url = `https://api.semanticscholar.org/graph/v1/paper/DOI:${encodeURIComponent(doi)}?fields=title,year,authors,references.paperId,references.title,references.year,citations.paperId,citations.title,citations.year,citationCount,referenceCount`;
+          const proxyUrl = "https://cors.isomorphic-git.org/";
+          const res = await fetch(proxyUrl + url);
+          if (!res.ok) throw new Error("API erişimi başarısız");
+          const data = await res.json();
+          fullData = data;
+          drawGraph(data);
+          status.textContent = `✅ "${data.title}" başarıyla görselleştirildi.`;
+        } catch (err) {
+          status.textContent = "❌ Veri alınamadı. DOI'yi kontrol edin veya tekrar deneyin.";
+          console.error(err);
+        } finally {
+          spinner.style.display = "none";
         }
       }
+
+      function drawGraph(data) {
+        const yearLimit = yearFilter.value === "all" ? 0 : parseInt(yearFilter.value);
+        const nodes = [], edges = [];
+        const mainId = data.paperId || data.doi;
+
+        nodes.push({
+          id: mainId,
+          label: `[ANA]\n${data.title.substring(0, 45)}...`,
+          title: `${data.title}\nYıl: ${data.year}\nAtıf: ${data.citationCount || "?"}`,
+          color: "#f0a30a",
+          size: 40
+        });
+
+        const addNode = (list, color, direction) => {
+          list.forEach(item => {
+            if (!item || (item.year && item.year < yearLimit)) return;
+            const size = Math.max(10, Math.min(25, (item.citationCount || 5) / 5 + 12));
+            nodes.push({
+              id: item.paperId,
+              label: (item.title || "Başlık yok").substring(0, 45),
+              color,
+              title: `${item.title}\nYıl: ${item.year || "?"}`,
+              url: `https://www.semanticscholar.org/paper/${item.paperId}`,
+              size
+            });
+            edges.push(direction === "ref" ? 
+              { from: mainId, to: item.paperId, color: { color: "#4285F4" } } :
+              { from: item.paperId, to: mainId, color: { color: "#34A853" } });
+          });
+        };
+
+        addNode(data.references || [], "#4285F4", "ref");
+        addNode(data.citations || [], "#34A853", "cit");
+
+        const graphData = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
+        network = new vis.Network(container, graphData, options);
+
+        network.on("click", p => {
+          if (p.nodes.length > 0) {
+            const node = graphData.nodes.get(p.nodes[0]);
+            if (node.url) window.open(node.url, "_blank");
+          }
+        });
+      }
     });
-
-    // center button available
-    centerButton.onclick = ()=> { if(network) network.fit({ animation: { duration: 600 } }); };
-
-    // hide/show edges initial state
-    graphData.edges.getIds().forEach(id => graphData.edges.update({ id, hidden: !edgesVisible }));
-
-    // light flourish
-    container.animate([{ boxShadow: '0 0 0px var(--shadow)' }, { boxShadow: '0 0 25px var(--shadow)' }], { duration: 700, iterations: 2 });
-  }
-
-  // expose searchPaper in window for debugging (optional)
-  window.searchPaper = searchPaper;
-});
-</script>
+  </script>
 </body>
 </html>
