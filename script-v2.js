@@ -31,16 +31,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             
-            // --- HATA DÜZELTMESİ (GERÇEK NİHAİ SÜRÜM) ---
+            // --- HATA DÜZELTMESİ (NİHAİ SÜRÜM - TÜM HATALAR TEMİZLENDİ) ---
             
-            // 1. "DOI:" ön ekini ekle.
-            const paperId = `DOI:${query}`; 
+            // 1. NE 'DOI:' ÖN EKİ, NE DE 'encodeURIComponent' KULLANILIYOR.
+            // Sadece girdiği sorgu (query) olduğu gibi API'ye gönderiliyor.
+            // BÜTÜN SORUN BU İKİ HATALI KODMUŞ.
             
-            // 2. YANLIŞ OLAN 'encodeURIComponent' KOMUTU KALDIRILDI.
-            // fetch() komutu / karakterini zaten doğru yönetiyor.
-            
-            // 3. Güvenli ID'yi API adresine ekle.
-            const apiUrl = `https://api.semanticscholar.org/v1/paper/${paperId}?fields=title,authors,year,references.title,citations.title`;
+            const apiUrl = `https://api.semanticscholar.org/v1/paper/${query}?fields=title,authors,year,references.title,citations.title`;
             
             // --- DÜZELTME SONU ---
 
