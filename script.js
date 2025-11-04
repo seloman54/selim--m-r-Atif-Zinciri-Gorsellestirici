@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function searchPaper() {
         const query = paperInput.value.trim();
         if (query === '') {
-            status.textContent = 'Lütfen bir DOI, ID veya makale başlığı girin.';
+            status.textContent = 'Lütfen bir DOI numarası girin.';
             return;
         }
 
@@ -58,14 +58,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             // 1. Semantic Scholar API'sini çağır
-            // 'fields=' ile hangi bilgileri istediğimizi belirtiyoruz (başlık, referanslar, atıflar)
-// --- HATA DÜZELTMESİ (DOI: ön eki eklendi) ---
-        // Sadece DOI kabul ettiğimizi varsayıyoruz ve başına "DOI:" ekliyoruz.
-        // encodeURIComponent'i de kaldırdık çünkü DOI'deki / (slash) karakterini bozuyordu.
-
-        const paperId = `DOI:${query}`; 
-        const apiUrl = `https://api.semanticscholar.org/v1/paper/${paperId}?fields=title,authors,year,references.title,citations.title`;
             
+            // --- HATA DÜZELTMESİ BURADA ---
+            // Eski 'apiUrl' satırı silindi, yerine bu iki satır geldi.
+            // Bu, 'DOI:' ön ekini ekler ve / karakterini bozmadan gönderir.
+            
+            const paperId = `DOI:${query}`; 
+            const apiUrl = `https://api.semanticscholar.org/v1/paper/${paperId}?fields=title,authors,year,references.title,citations.title`;
+            
+            // --- DÜZELTME SONU ---
+
             const response = await fetch(apiUrl);
             
             if (!response.ok) {
@@ -134,9 +136,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
         
-        // Düğümleri teke indir (bir makale hem atıf hem kaynakça olabilir)
-        // Bu, daha ileri bir adımdır, şimdilik basit tutalım.
-
         // Vis.js verisini oluştur
         const graphData = {
             nodes: new vis.DataSet(nodes),
