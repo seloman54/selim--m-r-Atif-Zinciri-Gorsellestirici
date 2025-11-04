@@ -103,7 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // 1. Kaynakçayı (References) ekle
         if (data.references) {
             data.references.forEach(ref => {
-                if (ref.paperId) {
+                if (ref.PaperId) { // Semantic Scholar API 'paperId' olarak değiştirmiş olabilir
                     nodes.push({
                         id: ref.paperId,
                         label: ref.title.substring(0, 30) + '...',
