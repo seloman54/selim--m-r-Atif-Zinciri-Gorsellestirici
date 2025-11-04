@@ -31,26 +31,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             
-            // --- HATA DÜZELTMESİ (NİHAİ SÜRÜM) ---
+            // --- HATA DÜZELTMESİ (GERÇEK NİHAİ SÜRÜM) ---
             
             // 1. "DOI:" ön ekini ekle.
             const paperId = `DOI:${query}`; 
             
-            // 2. TÜM ID'Yİ (DOI:10.1109/5.771073) URL için güvenli hale getir.
-            // Bu, '/' karakterini '%2F'ye ve ':' karakterini '%3A'ya çevirir.
-            // Bütün sorunu çıkaran eksik adım buydu.
-            const encodedPaperId = encodeURIComponent(paperId);
+            // 2. YANLIŞ OLAN 'encodeURIComponent' KOMUTU KALDIRILDI.
+            // fetch() komutu / karakterini zaten doğru yönetiyor.
             
             // 3. Güvenli ID'yi API adresine ekle.
-            const apiUrl = `https://api.semanticscholar.org/v1/paper/${encodedPaperId}?fields=title,authors,year,references.title,citations.title`;
+            const apiUrl = `https://api.semanticscholar.org/v1/paper/${paperId}?fields=title,authors,year,references.title,citations.title`;
             
             // --- DÜZELTME SONU ---
 
             const response = await fetch(apiUrl);
             
             if (!response.ok) {
-                // Sunucudan gelen hatayı daha detaylı gösterelim
-                const errorData = await response.json();
+                const errorData = await response.json().catch(() => ({ error: 'Bilinmeyen API hatası' }));
                 throw new Error(`API Hatası: ${errorData.error || 'Makale bulunamadı'}`);
             }
             
