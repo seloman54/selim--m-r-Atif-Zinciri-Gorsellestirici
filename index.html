@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>By Selim - Atıf Zinciri Görselleştirici</title>
 
@@ -9,7 +9,7 @@
   <script src="https://unpkg.com/vis-network@9.1.2/dist/vis-network.min.js"></script>
   <link rel="stylesheet" href="https://unpkg.com/vis-network@9.1.2/dist/vis-network.min.css">
 
-  <!-- html2canvas + jspdf for export -->
+  <!-- html2canvas + jspdf for export (PNG/PDF) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -22,17 +22,19 @@
     body.dark{ --bg: linear-gradient(135deg,#0f1116,#1a1d23); --accent:#00bfff; --card:#1f1f1f; --text:#eee; --shadow: rgba(0,191,255,0.18); }
     body{ margin:0; font-family:"Segoe UI",sans-serif; background:var(--bg); color:var(--text); transition:0.35s; text-align:center; }
     h1{ margin:18px 0; color:var(--accent); text-shadow:1px 1px 3px rgba(0,0,0,0.15);}
-    #controls{ display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin:12px; }
+    #controls{ display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin:12px; align-items:center; }
     input,select,button{ padding:10px 12px; border-radius:8px; border:1px solid #ccc; font-size:14px; }
     button{ background:var(--accent); color:#fff; border:none; cursor:pointer; box-shadow:0 3px 6px var(--shadow); }
     #network{ width:90%; height:560px; margin:12px auto; border-radius:14px; background:var(--card); box-shadow:0 0 25px var(--shadow); position:relative; }
     #status{ margin:8px; font-weight:600;}
-    #notes{ background: rgba(43,78,255,0.07); max-width:760px; margin:8px auto; padding:12px; border-radius:10px; font-size:14px; }
+    #notes{ background: rgba(43,78,255,0.07); max-width:760px; margin:8px auto; padding:12px; border-radius:10px; font-size:14px; text-align:left; }
     footer{ margin:18px 0; font-size:13px; color:gray; }
     footer a{ color:var(--accent); text-decoration:none; }
     #centerButton{ position:absolute; right:12px; top:12px; z-index:8; padding:6px 10px; border-radius:8px; border:none; background:var(--accent); color:#fff; cursor:pointer;}
     #history{ padding:8px 10px; border-radius:8px; }
     .side-controls{ display:flex; gap:8px; align-items:center; }
+    /* small responsive */
+    @media (max-width:720px){ #network{ height:450px; } input{ width:200px; } }
   </style>
 </head>
 <body>
@@ -56,12 +58,25 @@
 
   <div id="status">Hazır — DOI girip Ara'ya basın.</div>
   <div id="network"><button id="centerButton">🎯 Ortala</button></div>
-  <div id="notes">🔹 Mavi = kaynakça, Yeşil = atıf yapanlar. Düğüm tıklayınca makale sayfası açılır. Eksik atıf verisi için OpenAlex yedeği kullanılıyor.</div>
+
+  <!-- Daha ayrıntılı açıklama (senin istediğin eski biçime dönüyor) -->
+  <div id="notes">
+    <strong>Kısa kullanım rehberi</strong><br>
+    • DOI'yi kutuya yapıştırın (ör. <code>10.1109/5.771073</code>) ve <b>Ara</b> butonuna tıklayın.<br>
+    • Uygulama önce Semantic Scholar'dan veri çeker (daha kaliteli atıf/referans verisi).<br>
+    • Eğer Semantic Scholar eksik veri verirse, OpenAlex'e düşülür — OpenAlex genelde daha fazla atıf/kaynak gösterir. (Bu yüzden bazı DOI'lerde önce az çıkıp sonra OpenAlex ile tam dolu görünür.)<br>
+    • Yine veri eksikse Crossref'den en az başlık/yıl bilgisi alınır.<br>
+    • Ortadaki turuncu düğüm kök makaledir. Sol taraf (mavi) kaynakça / referanslar, sağ taraf (yeşil) makaleye atıf yapan yeni makalelerdir.<br>
+    • Düğüme tıklayınca ilgili makalenin DOI veya OpenAlex/SemanticScholar sayfası yeni sekmede açılır.<br>
+    • <b>Not:</b> Çok büyük makalelerde (binlerce atıf) performans için gösterim sınırı vardır; ayarlar içinde örnek 60–200 arası sınır uygulanır.<br>
+    • <em>Geri bildirimi / hata raporlarını <a href="mailto:omurselim@gmail.com">omurselim@gmail.com</a> adresine gönderebilirsiniz.</em>
+  </div>
 
   <footer>© 2025 <b>Selim ÖMÜR</b> — <a href="mailto:omurselim@gmail.com">omurselim@gmail.com</a> — İzinsiz kullanılamaz.</footer>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+  // DOM elemanları
   const paperInput = document.getElementById('paperInput');
   const searchButton = document.getElementById('searchButton');
   const sampleButton = document.getElementById('sampleButton');
@@ -75,14 +90,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const favoriteBtn = document.getElementById('favoriteBtn');
   const historySelect = document.getElementById('history');
 
-  const proxy = 'https://api.allorigins.win/raw?url='; // CORS proxy for Semantic Scholar
+  // Proxy for Semantic Scholar to avoid CORS
+  const proxy = 'https://api.allorigins.win/raw?url=';
+
   let network = null;
   let graphData = null;
   let lastDOI = null;
 
   const options = { nodes:{shape:'dot',font:{size:14}}, edges:{width:2, arrows:{to:{enabled:true}}}, physics:{stabilization:true} };
 
-  // helpers: localStorage history & favorites
+  // History & favorites (localStorage)
   function addToHistory(doi){
     if(!doi) return;
     let h = JSON.parse(localStorage.getItem('sa_history')||'[]');
@@ -111,6 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderHistory();
   historySelect.addEventListener('change', ()=>{ if(historySelect.value) { paperInput.value = historySelect.value; searchPaper(); }});
 
+  // UI events
   sampleButton.onclick = ()=> {
     const samples = ["10.1109/5.771073","10.1038/nature12373","10.48550/arXiv.1706.03762","10.1145/3368089.3409694"];
     paperInput.value = samples[Math.floor(Math.random()*samples.length)];
@@ -144,6 +162,13 @@ document.addEventListener('DOMContentLoaded', () => {
   paperInput.addEventListener('keyup', e => { if(e.key==='Enter') searchPaper(); });
   searchButton.onclick = searchPaper;
 
+  /* ---------------------------
+     Veri çekme mantığı (öncelik sırası)
+     1) Semantic Scholar (proxy ile CORS atlatma)
+     2) Eğer SS'de references/citations azsa -> OpenAlex'ten ek çek (referanslar + citing works)
+     3) Eğer hâlâ veri yoksa Crossref fallback
+     ---------------------------*/
+
   async function searchPaper(){
     const doi = paperInput.value.trim();
     if(!doi){ status.textContent = '⚠️ Lütfen DOI girin.'; return; }
@@ -152,128 +177,172 @@ document.addEventListener('DOMContentLoaded', () => {
     container.classList.add('loading');
 
     try {
-      // 1) Semantic Scholar via proxy (to avoid CORS)
-      const ssUrl = `https://api.semanticscholar.org/graph/v1/paper/DOI:${encodeURIComponent(doi)}?fields=title,year,authors,doi,paperId,url,references.paperId,references.title,references.year,references.doi,citations.paperId,citations.title,citations.year,citations.doi,citationCount`;
+      // 1) Semantic Scholar via proxy
+      const ssUrl = `https://api.semanticscholar.org/graph/v1/paper/DOI:${encodeURIComponent(doi)}?fields=title,year,authors,doi,paperId,url,citationCount,references.paperId,references.title,references.year,references.doi,citations.paperId,citations.title,citations.year,citations.doi`;
       let ssResp = await fetch(proxy + encodeURIComponent(ssUrl));
-      let ssOk = ssResp.ok;
-      let ssJson = ssOk ? await ssResp.json().catch(()=>null) : null;
+      let ssJson = ssResp.ok ? await ssResp.json().catch(()=>null) : null;
 
-      // If SS returned references/citations arrays with content -> use it
       let data = null;
       const ssHasRefs = ssJson && Array.isArray(ssJson.references) && ssJson.references.length>0;
       const ssHasCits = ssJson && Array.isArray(ssJson.citations) && ssJson.citations.length>0;
 
-      if(ssOk && (ssHasRefs || ssHasCits)){
+      // If SS has reasonably many refs/cits, use it directly
+      if(ssJson && (ssHasRefs || ssHasCits)) {
         data = ssJson;
       } else {
-        // Try OpenAlex (better coverage for some DOIs)
+        // try OpenAlex for more complete coverage (esp. citation lists)
         try {
           const openalexUrl = `https://api.openalex.org/works/https://doi.org/${encodeURIComponent(doi)}`;
           const oxResp = await fetch(openalexUrl);
           if(oxResp.ok){
             const ox = await oxResp.json();
-            // build basic data and then fetch sample of referenced & citing works (limit 12 each)
+            // basic data
             data = {
               title: ox.title,
               year: ox.publication_year,
               doi: doi,
-              paperId: ox.id, // OpenAlex id
-              url: ox.open_access?.oa_url || `https://openalex.org/${ox.id}`,
+              paperId: ox.id,
+              url: ox.id ? `https://openalex.org/${ox.id.split('/').pop()}` : (ox.open_access?.oa_url || null),
+              citationCount: ox.cited_by_count || 0,
               references: [],
               citations: []
             };
-            // referenced_works are OpenAlex IDs like "https://openalex.org/W1234"
-            const refs = (ox.referenced_works || []).slice(0,12);
-            const citsLimit = 12;
-            // fetch each referenced work metadata (limited)
-            const refsPromises = refs.map(id => fetch(id).then(r=>r.ok?r.json():null).catch(()=>null));
-            const refsData = await Promise.all(refsPromises);
-            refsData.forEach(r=>{
-              if(r) data.references.push({ title: r.title, paperId: r.id, doi: r.doi || null, year: r.publication_year, url: r.primary_location?.source_url || r.id });
+
+            // references: ox.referenced_works contains OpenAlex ids. Fetch details (limit 120)
+            const refs = (ox.referenced_works || []).slice(0,120);
+            const refFetches = refs.map(id => fetch(id).then(r=>r.ok?r.json():null).catch(()=>null));
+            const refsData = await Promise.all(refFetches);
+            refsData.forEach(r => {
+              if(!r) return;
+              data.references.push({
+                title: r.title,
+                paperId: r.id,
+                doi: r.doi || null,
+                year: r.publication_year,
+                citationCount: r.cited_by_count || 0,
+                url: r.primary_location?.source_url || `https://openalex.org/${r.id.split('/').pop()}`
+              });
             });
-            // for citing works, we query works?filter=cites:OPENALEX_ID
+
+            // citations: get works that cite this OpenAlex ID (per_page up to 200)
             if(ox.id){
-              const citesResp = await fetch(`https://api.openalex.org/works?filter=cites:${encodeURIComponent(ox.id)}&per_page=${citsLimit}`);
+              const citesResp = await fetch(`https://api.openalex.org/works?filter=cites:${encodeURIComponent(ox.id)}&per_page=200`);
               if(citesResp.ok){
                 const citesJson = await citesResp.json();
-                (citesJson.results || []).slice(0,citsLimit).forEach(r => {
-                  data.citations.push({ title: r.title, paperId: r.id, doi: r.doi || null, year: r.publication_year, url: r.primary_location?.source_url || r.id });
+                (citesJson.results || []).forEach(r => {
+                  data.citations.push({
+                    title: r.title,
+                    paperId: r.id,
+                    doi: r.doi || null,
+                    year: r.publication_year,
+                    citationCount: r.cited_by_count || 0,
+                    url: r.primary_location?.source_url || `https://openalex.org/${r.id.split('/').pop()}`
+                  });
                 });
               }
             }
           }
-        } catch(e){ console.warn('OpenAlex error', e); }
+        } catch(e){
+          console.warn('OpenAlex hata', e);
+        }
       }
 
-      // If still nothing -> Crossref minimal fallback
+      // If data still empty, but ssJson exists (even if limited), use ssJson as base
+      if(!data && ssJson){
+        data = ssJson;
+      }
+
+      // If still no data, fallback to Crossref minimal record
       if(!data){
         try{
           const crResp = await fetch(`https://api.crossref.org/works/${encodeURIComponent(doi)}`);
           if(crResp.ok){
             const cr = await crResp.json();
             const msg = cr.message;
-            data = { title: msg.title?.[0]||'Başlık yok', year: msg.created?.['date-parts']?.[0]?.[0]||null, doi: msg.DOI, references: [], citations: [] , url: msg.URL || `https://doi.org/${msg.DOI}`};
+            data = { title: msg.title?.[0]||'Başlık yok', year: msg.created?.['date-parts']?.[0]?.[0]||null, doi: msg.DOI, references: [], citations: [], url: msg.URL || `https://doi.org/${msg.DOI}` };
           }
-        } catch(e){ /* ignore */ }
+        } catch(e) { /* ignore */ }
       }
 
       if(!data){ status.textContent = '❌ Veriler alınamadı (Semantic Scholar / OpenAlex / Crossref).'; return; }
 
-      // store history
+      // store history & update UI
       addToHistory(doi);
       lastDOI = doi; updateFavoriteBtn(doi);
 
-      // draw
+      // draw merged/complete data
       fullDraw(data);
       status.textContent = `✅ "${data.title||doi}" görselleştirildi.`;
     } catch(err){
       console.error(err);
-      status.textContent = '❌ Beklenmedik hata: konsolu kontrol edin.';
+      status.textContent = '❌ Beklenmedik hata. Konsolu kontrol edin.';
     } finally {
       container.classList.remove('loading');
     }
   } // end searchPaper
+
+  // Deterministic node size based on citation count
+  // citationCount >=0 -> size = 12 + clamp(round(log10(1+count)*22), 0..40)
+  function sizeFromCitations(count){
+    const c = Math.max(0, Number(count) || 0);
+    const size = 12 + Math.min(40, Math.round(Math.log10(1 + c) * 22));
+    return size;
+  }
 
   function fullDraw(data){
     const yearLimit = yearFilter.value === 'all' ? 0 : parseInt(yearFilter.value);
     const nodes = [], edges = [];
 
     const mainId = data.paperId || data.doi || data.title;
-    // size by citationCount if exists
-    const mainSize = Math.min(45, 25 + (data.citationCount||0)/5);
+    const mainSize = sizeFromCitations(data.citationCount || 0);
 
-    nodes.push({ id: mainId, label:`[ANA]\n${(data.title||'Başlık').substring(0,40)}...`, title: `${data.title}\n(${data.year||'?'})`, color:'#f0a30a', size: mainSize, url: data.url || (data.doi?`https://doi.org/${data.doi}`:null) });
+    nodes.push({
+      id: mainId,
+      label:`[ANA]\n${(data.title||'Başlık').substring(0,40)}...`,
+      title: `${data.title || ''}\n(${data.year || '?'})`,
+      color:'#f0a30a',
+      size: mainSize,
+      url: data.url || (data.doi?`https://doi.org/${data.doi}`:null)
+    });
 
     const addList = (list, color, dir) => {
-      (list||[]).slice(0,60).forEach(item=>{
+      (list||[]).slice(0,200).forEach(item=>{
         if(item.year && yearLimit && item.year < yearLimit) return;
         const id = item.paperId || item.doi || item.title;
         if(!id) return;
-        const size = 12 + Math.min(25, (item.citationCount||0)/5);
-        nodes.push({ id, label:(item.title||'Başlık').substring(0,40), title:`${item.title || ''}\nYıl:${item.year||'?'}`, color, size, url: item.doi?`https://doi.org/${item.doi}`: (item.url|| (item.paperId?`https://openalex.org/${item.paperId}`:null)) });
-        if(dir==='ref') edges.push({ from: mainId, to: id }); else edges.push({ from: id, to: mainId });
+        const s = sizeFromCitations(item.citationCount || 0);
+        nodes.push({
+          id,
+          label:(item.title||'Başlık').substring(0,40),
+          title:`${item.title || ''}\nYıl:${item.year || '?'}`,
+          color,
+          size: s,
+          url: item.doi ? `https://doi.org/${item.doi}` : (item.url || (item.paperId?`https://openalex.org/${item.paperId.split('/').pop()}`:null))
+        });
+        edges.push(dir==='ref' ? { from: mainId, to: id } : { from: id, to: mainId });
       });
     };
 
-    addList(data.references, '#4285F4', 'ref');
-    addList(data.citations, '#34A853', 'cit');
+    addList(data.references || [], '#4285F4', 'ref');
+    addList(data.citations || [], '#34A853', 'cit');
 
-    // deduplicate nodes by id
-    const uniqNodes = {};
-    nodes.forEach(n=>{ uniqNodes[n.id]=n; });
-    const finalNodes = Object.values(uniqNodes);
+    // Deduplicate nodes by id
+    const uniq = {};
+    nodes.forEach(n=>{ uniq[n.id] = n; });
+    const finalNodes = Object.values(uniq);
 
     graphData = { nodes: new vis.DataSet(finalNodes), edges: new vis.DataSet(edges) };
     if(network) network.destroy();
     network = new vis.Network(container, graphData, options);
 
-    // node click -> open url
+    // click -> open url
     network.on('click', params=>{
       if(params.nodes.length){
         const n = graphData.nodes.get(params.nodes[0]);
         if(n && n.url) window.open(n.url, '_blank');
       }
     });
+
     // small flourish
     container.animate([{boxShadow:'0 0 0px var(--shadow)'},{boxShadow:'0 0 25px var(--shadow)'}],{duration:700,iterations:2});
   }
