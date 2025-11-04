@@ -59,9 +59,8 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             // 1. Semantic Scholar API'sini çağır
             
-            // --- HATA DÜZELTMESİ BURADA ---
-            // Eski 'apiUrl' satırı silindi, yerine bu iki satır geldi.
-            // Bu, 'DOI:' ön ekini ekler ve / karakterini bozmadan gönderir.
+            // --- BURASI DÜZELTİLMİŞ KISIM ---
+            // 'encodeURIComponent' kaldırıldı ve 'DOI:' ön eki eklendi.
             
             const paperId = `DOI:${query}`; 
             const apiUrl = `https://api.semanticscholar.org/v1/paper/${paperId}?fields=title,authors,year,references.title,citations.title`;
@@ -93,34 +92,30 @@ document.addEventListener('DOMContentLoaded', () => {
         const edges = [];
 
         // Ana (kök) makaleyi ekle
-        // Ana makaleyi farklı bir renkte ve daha büyük göster
         nodes.push({ 
             id: data.paperId, 
-            label: `[ANA MAKALE]\n${data.title.substring(0, 30)}...`, // Etiket çok uzun olmasın
-            title: `${data.title} (${data.year})`, // Fare ile üzerine gelince tam başlığı göster
-            color: '#f0a30a', // Farklı renk (örn: sarı/turuncu)
+            label: `[ANA MAKALE]\n${data.title.substring(0, 30)}...`,
+            title: `${data.title} (${data.year})`,
+            color: '#f0a30a',
             size: 30
         });
 
         // 1. Kaynakçayı (References) ekle
-        // Bunlar, ana makalenin atıf yaptığı eski makalelerdir
         if (data.references) {
             data.references.forEach(ref => {
-                if (ref.paperId) { // Sadece ID'si olanları ekle
+                if (ref.paperId) {
                     nodes.push({
                         id: ref.paperId,
                         label: ref.title.substring(0, 30) + '...',
                         title: ref.title,
                         color: '#4285F4' // Mavi
                     });
-                    // Ok, ana makaleden kaynağa doğrudur (Ana -> Kaynak)
                     edges.push({ from: data.paperId, to: ref.paperId });
                 }
             });
         }
 
         // 2. Atıfları (Citations) ekle
-        // Bunlar, ana makaleye atıf yapan yeni makalelerdir
         if (data.citations) {
             data.citations.forEach(cit => {
                 if (cit.paperId) {
@@ -130,7 +125,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         title: cit.title,
                         color: '#34A853' // Yeşil
                     });
-                    // Ok, atıf yapan makaleden ana makaleye doğrudur (Atıf -> Ana)
                     edges.push({ from: cit.paperId, to: data.paperId });
                 }
             });
