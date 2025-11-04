@@ -1,4 +1,3 @@
-// Sayfa yüklendiğinde çalış
 document.addEventListener('DOMContentLoaded', () => {
     const searchButton = document.getElementById('searchButton');
     const paperInput = document.getElementById('paperInput');
@@ -23,36 +22,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
         status.textContent = 'Aranıyor... Lütfen bekleyin...';
 
-        // Önce Semantic Scholar API’yi dene
-        try {
-            const apiUrl = `https://api.semanticscholar.org/graph/v1/paper/DOI:${query}?fields=title,authors,year,references.paperId,references.title,citations.paperId,citations.title`;
+        // --- PROXY TANIMI ---
+        const proxy = 'https://api.allorigins.win/raw?url=';
 
-            const response = await fetch(apiUrl, { mode: 'cors' });
-            if (!response.ok) throw new Error("Semantic Scholar'da bulunamadı.");
+        // 1️⃣ Semantic Scholar API’yi proxy ile dene
+        try {
+            const encodedUrl = encodeURIComponent(
+                `https://api.semanticscholar.org/graph/v1/paper/DOI:${query}?fields=title,authors,year,references.paperId,references.title,citations.paperId,citations.title`
+            );
+
+            const response = await fetch(`${proxy}${encodedUrl}`);
+            if (!response.ok) throw new Error('Semantic Scholar hatası');
 
             const data = await response.json();
             drawGraph(data);
-            status.textContent = `"${data.title}" için sonuçlar bulundu.`;
+            status.textContent = `"${data.title}" için Semantic Scholar üzerinden sonuçlar bulundu.`;
             return;
         } catch (error) {
-            console.warn('Semantic Scholar API başarısız, Crossref’e geçiliyor...', error);
+            console.warn('Semantic Scholar başarısız, Crossref’e geçiliyor...', error);
         }
 
-        // Eğer buraya geldiyse, Crossref API’yi dene
+        // 2️⃣ Crossref API (yedek sistem)
         try {
-            const crossrefUrl = `https://api.crossref.org/works/${query}`;
-            const response = await fetch(crossrefUrl, { mode: 'cors' });
-
-            if (!response.ok) throw new Error("Crossref'te de bulunamadı.");
+            const encodedUrl = encodeURIComponent(`https://api.crossref.org/works/${query}`);
+            const response = await fetch(`${proxy}${encodedUrl}`);
+            if (!response.ok) throw new Error('Crossref hatası');
 
             const crossData = await response.json();
             const item = crossData.message;
 
-            // Crossref verisinden basit bir düğüm oluştur
             const data = {
                 paperId: item.DOI,
                 title: item.title ? item.title[0] : 'Başlık bulunamadı',
-                year: item.published && item.published['date-parts'] ? item.published['date-parts'][0][0] : 'Yıl yok',
+                year: item['published-print']?.['date-parts']?.[0]?.[0] || 'Yıl yok',
                 authors: item.author ? item.author.map(a => a.family).join(', ') : 'Yazar bilgisi yok',
                 references: [],
                 citations: []
@@ -62,7 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
             status.textContent = `"${data.title}" Crossref üzerinden getirildi.`;
         } catch (error) {
             console.error('Crossref API hatası:', error);
-            status.textContent = 'Hata: DOI hem Semantic Scholar hem de Crossref üzerinde bulunamadı.';
+            status.textContent = 'Hata: DOI hem Semantic Scholar hem de Crossref üzerinden alınamadı.';
         }
     }
 
