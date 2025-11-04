@@ -1,6 +1,4 @@
-// Sayfa yüklendiğinde çalış
 document.addEventListener('DOMContentLoaded', () => {
-    
     const searchButton = document.getElementById('searchButton');
     const paperInput = document.getElementById('paperInput');
     const networkContainer = document.getElementById('network');
@@ -12,8 +10,8 @@ document.addEventListener('DOMContentLoaded', () => {
         physics: { solver: 'barnesHut', barnesHut: { gravitationalConstant: -3000 } }
     };
 
-    searchButton.onclick = () => { searchPaper(); };
-    paperInput.onkeyup = (event) => { if (event.key === 'Enter') { searchPaper(); } };
+    searchButton.onclick = () => searchPaper();
+    paperInput.onkeyup = (event) => { if (event.key === 'Enter') searchPaper(); };
 
     async function searchPaper() {
         const query = paperInput.value.trim();
@@ -25,9 +23,9 @@ document.addEventListener('DOMContentLoaded', () => {
         status.textContent = 'Aranıyor... Lütfen bekleyin...';
 
         try {
-            // ✅ Yeni API + CORS proxy
-            const proxy = "https://api.allorigins.win/raw?url=";
-            const apiUrl = `https://api.semanticscholar.org/graph/v1/paper/DOI:${encodeURIComponent(query)}?fields=title,authors,year,references.title,references.paperId,citations.title,citations.paperId`;
+            // ✅ Yeni proxy (daha kararlı)
+            const proxy = "https://corsproxy.io/?";
+            const apiUrl = `https://api.semanticscholar.org/graph/v1/paper/DOI:${encodeURIComponent(query)}?fields=title,year,references.title,references.paperId,citations.title,citations.paperId`;
             const fullUrl = proxy + encodeURIComponent(apiUrl);
 
             const response = await fetch(fullUrl);
@@ -45,7 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (error) {
             console.error('Hata:', error);
-            status.textContent = `Hata: ${error.message}. Lütfen girdinizi kontrol edin.`;
+            status.textContent = `Hata: ${error.message}. Lütfen DOI'yi kontrol edin veya daha sonra tekrar deneyin.`;
         }
     }
 
@@ -53,15 +51,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const nodes = [];
         const edges = [];
 
-        nodes.push({ 
-            id: data.paperId, 
+        nodes.push({
+            id: data.paperId,
             label: `[ANA MAKALE]\n${data.title.substring(0, 30)}...`,
             title: `${data.title} (${data.year || 'Yıl yok'})`,
             color: '#f0a30a',
             size: 30
         });
 
-        // Kaynakçalar (References)
         if (data.references) {
             data.references.forEach(ref => {
                 if (ref.paperId && ref.title) {
@@ -76,7 +73,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // Atıflar (Citations)
         if (data.citations) {
             data.citations.forEach(cit => {
                 if (cit.paperId && cit.title) {
@@ -90,12 +86,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         }
-        
+
         const graphData = {
             nodes: new vis.DataSet(nodes),
             edges: new vis.DataSet(edges)
         };
-        
+
         new vis.Network(networkContainer, graphData, options);
     }
 });
