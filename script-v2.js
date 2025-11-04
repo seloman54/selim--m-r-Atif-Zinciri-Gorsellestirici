@@ -31,18 +31,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             
-            // --- HATA DÜZELTMESİ (GERÇEK NİHAİ SÜRÜM v4) ---
+            // --- HATA DÜZELTMESİ (BU SEFER %100 DOĞRU) ---
             
-            // 1. Girdiyi (query) URL için güvenli hale getir.
-            // Bu, '10.1109/5.771073' adresini '10.1109%2F5.771073' yapar.
-            // Bütün 'Not found' hatasının nedeni bu / karakteriydi.
-            const encodedQuery = encodeURIComponent(query);
+            // 1. Önce 'DOI:' ön ekini ekle.
+            const paperId = `DOI:${query}`; 
             
-            // 2. API'nin istediği 'DOI:' ön ekini, kodlanmış metnin BAŞINA ekle.
-            const paperId = `DOI:${encodedQuery}`; 
+            // 2. SONRA, 'DOI:10.1109/5.771073' METNİNİN TAMAMINI KODLA.
+            // Bu, 'DOI%3A10.1109%2F5.771073' haline gelir.
+            // Bütün 'Not found' hatasının nedeni bu adımın yanlış yapılmasıydı.
+            const encodedPaperId = encodeURIComponent(paperId);
             
             // 3. API'yi çağır.
-            const apiUrl = `https://api.semanticscholar.org/v1/paper/${paperId}?fields=title,authors,year,references.title,citations.title`;
+            const apiUrl = `https://api.semanticscholar.org/v1/paper/${encodedPaperId}?fields=title,authors,year,references.title,citations.title`;
             
             // --- DÜZELTME SONU ---
 
