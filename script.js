@@ -59,7 +59,12 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             // 1. Semantic Scholar API'sini çağır
             // 'fields=' ile hangi bilgileri istediğimizi belirtiyoruz (başlık, referanslar, atıflar)
-            const apiUrl = `https://api.semanticscholar.org/v1/paper/${encodeURIComponent(query)}?fields=title,authors,year,references.title,citations.title`;
+// --- HATA DÜZELTMESİ (DOI: ön eki eklendi) ---
+        // Sadece DOI kabul ettiğimizi varsayıyoruz ve başına "DOI:" ekliyoruz.
+        // encodeURIComponent'i de kaldırdık çünkü DOI'deki / (slash) karakterini bozuyordu.
+
+        const paperId = `DOI:${query}`; 
+        const apiUrl = `https://api.semanticscholar.org/v1/paper/${paperId}?fields=title,authors,year,references.title,citations.title`;
             
             const response = await fetch(apiUrl);
             
