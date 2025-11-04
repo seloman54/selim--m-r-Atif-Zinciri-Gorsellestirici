@@ -3,30 +3,98 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>By Selim-Atıf Zinciri Görselleştirici</title>
-    
-    <link href="https://unpkg.com/vis-network/styles/vis-network.min.css" rel="stylesheet" type="text/css" />
-    
-    <link rel="stylesheet" href="style.css">
+    <title>By Selim – Atıf Zinciri Görselleştirici</title>
+    <script type="text/javascript" src="https://unpkg.com/vis-network@9.1.2/dist/vis-network.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/vis-network@9.1.2/styles/vis-network.min.css" />
+    <style>
+        body {
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(120deg, #e6f0ff, #f9f9f9);
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        header {
+            background: #004aad;
+            color: white;
+            text-align: center;
+            padding: 18px 10px;
+            font-size: 22px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        }
+        #controls {
+            text-align: center;
+            margin-top: 20px;
+        }
+        #paperInput {
+            width: 300px;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+        }
+        #searchButton {
+            background: #004aad;
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-left: 8px;
+            transition: 0.3s;
+        }
+        #searchButton:hover {
+            background: #0066ff;
+            transform: scale(1.05);
+        }
+        #status {
+            margin-top: 10px;
+            font-style: italic;
+            color: #333;
+        }
+        #network {
+            height: calc(100vh - 180px);
+            margin: 20px;
+            border-radius: 12px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
+            background: white;
+        }
+        #infoBox {
+            position: fixed;
+            bottom: 12px;
+            right: 12px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 10px;
+            box-shadow: 0 0 6px rgba(0,0,0,0.1);
+            padding: 10px 14px;
+            font-size: 13px;
+            color: #333;
+            max-width: 240px;
+        }
+        #infoBox strong { color: #004aad; }
+    </style>
 </head>
 <body>
-
-    <div class="container">
-        <h1>By Selim-Atıf Zinciri Görselleştirici</h1>
-        <p>Bir makalenin kaynakçasını (References) ve ona atıf yapanları (Citations) keşfedin.</p>
-        
-        <div class="search-box">
-            <input type="text" id="paperInput" placeholder="Makale DOI Numarasını Girin (Örn: 10.1109/5.771073)">
-            <button id="searchButton">Ara</button>
-        </div>
-        
-        <div id="status">Lütfen bir DOI numarası arayın. (Örn: 10.1109/5.771073)</div>
-        
-        <div id="network"></div>
+    <header>By Selim – Atıf Zinciri Görselleştirici</header>
+    
+    <div id="controls">
+        <input id="paperInput" placeholder="DOI numarası girin (örnek: 10.1038/nature12373)">
+        <button id="searchButton">Ara</button>
+        <div id="status"></div>
     </div>
 
-    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
-    
- <script src="script-v2.js"></script>
+    <div id="network"></div>
+
+    <div id="infoBox">
+        <strong>Kullanım:</strong><br>
+        • DOI numarasını girip <b>Ara</b> butonuna tıklayın.<br>
+        • Ortada ana makale, solda kaynakları, sağda onu kullananlar görünür.<br>
+        • Bir düğüme tıklarsanız makale sayfası açılır.<br>
+        <em>Görselleştirme: Semantic Scholar & Crossref API</em>
+    </div>
+
+    <script src="script.js"></script>
 </body>
 </html>
