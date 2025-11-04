@@ -1,3 +1,4 @@
+// Sayfa yüklendiğinde çalış
 document.addEventListener('DOMContentLoaded', () => {
     const searchButton = document.getElementById('searchButton');
     const paperInput = document.getElementById('paperInput');
@@ -11,7 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     searchButton.onclick = () => searchPaper();
-    paperInput.onkeyup = (event) => { if (event.key === 'Enter') searchPaper(); };
+    paperInput.onkeyup = (e) => { if (e.key === 'Enter') searchPaper(); };
 
     async function searchPaper() {
         const query = paperInput.value.trim();
@@ -22,85 +23,67 @@ document.addEventListener('DOMContentLoaded', () => {
 
         status.textContent = 'Aranıyor... Lütfen bekleyin...';
 
+        // Önce Semantic Scholar API’yi dene
         try {
-            // 1️⃣ Önce Semantic Scholar API'sini dene
-            const paperData = await fetchFromSemanticScholar(query);
-            if (paperData) {
-                drawGraph(paperData);
-                status.textContent = `"${paperData.title}" (Semantic Scholar) için sonuçlar bulundu.`;
-                return;
-            }
+            const apiUrl = `https://api.semanticscholar.org/graph/v1/paper/DOI:${query}?fields=title,authors,year,references.paperId,references.title,citations.paperId,citations.title`;
 
-            // 2️⃣ Olmazsa Crossref'e geç
-            const crossrefData = await fetchFromCrossref(query);
-            if (crossrefData) {
-                drawBasicNode(crossrefData);
-                status.textContent = `"${crossrefData.title}" (Crossref) bulundu ancak atıf verisi yok.`;
-                return;
-            }
+            const response = await fetch(apiUrl, { mode: 'cors' });
+            if (!response.ok) throw new Error("Semantic Scholar'da bulunamadı.");
 
-            // 3️⃣ Hiçbiri çalışmadıysa
-            status.textContent = 'Makale bulunamadı. DOI geçerli ama veritabanlarında yer almıyor olabilir.';
+            const data = await response.json();
+            drawGraph(data);
+            status.textContent = `"${data.title}" için sonuçlar bulundu.`;
+            return;
         } catch (error) {
-            console.error('Hata:', error);
-            status.textContent = `Hata: ${error.message}. Lütfen DOI'yi kontrol edin veya daha sonra tekrar deneyin.`;
+            console.warn('Semantic Scholar API başarısız, Crossref’e geçiliyor...', error);
+        }
+
+        // Eğer buraya geldiyse, Crossref API’yi dene
+        try {
+            const crossrefUrl = `https://api.crossref.org/works/${query}`;
+            const response = await fetch(crossrefUrl, { mode: 'cors' });
+
+            if (!response.ok) throw new Error("Crossref'te de bulunamadı.");
+
+            const crossData = await response.json();
+            const item = crossData.message;
+
+            // Crossref verisinden basit bir düğüm oluştur
+            const data = {
+                paperId: item.DOI,
+                title: item.title ? item.title[0] : 'Başlık bulunamadı',
+                year: item.published && item.published['date-parts'] ? item.published['date-parts'][0][0] : 'Yıl yok',
+                authors: item.author ? item.author.map(a => a.family).join(', ') : 'Yazar bilgisi yok',
+                references: [],
+                citations: []
+            };
+
+            drawGraph(data);
+            status.textContent = `"${data.title}" Crossref üzerinden getirildi.`;
+        } catch (error) {
+            console.error('Crossref API hatası:', error);
+            status.textContent = 'Hata: DOI hem Semantic Scholar hem de Crossref üzerinde bulunamadı.';
         }
     }
 
-    // 🧠 Semantic Scholar API (öncelikli)
-    async function fetchFromSemanticScholar(doi) {
-        const proxy = "https://corsproxy.io/?";
-        const apiUrl = `https://api.semanticscholar.org/graph/v1/paper/DOI:${encodeURIComponent(doi)}?fields=title,year,references.title,references.paperId,citations.title,citations.paperId`;
-        const fullUrl = proxy + encodeURIComponent(apiUrl);
-
-        const response = await fetch(fullUrl);
-        if (!response.ok) return null;
-
-        const data = await response.json();
-        if (data.error || !data.title) return null;
-
-        return data;
-    }
-
-    // 🧩 Crossref API (yedek plan)
-    async function fetchFromCrossref(doi) {
-        const proxy = "https://corsproxy.io/?";
-        const apiUrl = `https://api.crossref.org/works/${encodeURIComponent(doi)}`;
-        const fullUrl = proxy + encodeURIComponent(apiUrl);
-
-        const response = await fetch(fullUrl);
-        if (!response.ok) return null;
-
-        const json = await response.json();
-        if (!json.message || !json.message.title) return null;
-
-        const msg = json.message;
-        return {
-            title: msg.title[0],
-            year: msg.created ? msg.created['date-parts'][0][0] : 'Yıl yok',
-            doi: msg.DOI
-        };
-    }
-
-    // 🕸️ Semantic Scholar grafiği
     function drawGraph(data) {
         const nodes = [];
         const edges = [];
 
         nodes.push({
             id: data.paperId,
-            label: `[ANA MAKALE]\n${data.title.substring(0, 30)}...`,
-            title: `${data.title} (${data.year || 'Yıl yok'})`,
+            label: `[ANA MAKALE]\n${data.title.substring(0, 40)}...`,
+            title: `${data.title} (${data.year})`,
             color: '#f0a30a',
             size: 30
         });
 
-        if (data.references) {
+        if (data.references && data.references.length > 0) {
             data.references.forEach(ref => {
-                if (ref.paperId && ref.title) {
+                if (ref.paperId) {
                     nodes.push({
                         id: ref.paperId,
-                        label: ref.title.substring(0, 30) + '...',
+                        label: ref.title ? ref.title.substring(0, 30) + '...' : 'Referans',
                         title: ref.title,
                         color: '#4285F4'
                     });
@@ -109,12 +92,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        if (data.citations) {
+        if (data.citations && data.citations.length > 0) {
             data.citations.forEach(cit => {
-                if (cit.paperId && cit.title) {
+                if (cit.paperId) {
                     nodes.push({
                         id: cit.paperId,
-                        label: cit.title.substring(0, 30) + '...',
+                        label: cit.title ? cit.title.substring(0, 30) + '...' : 'Atıf',
                         title: cit.title,
                         color: '#34A853'
                     });
@@ -123,20 +106,11 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        const graphData = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
-        new vis.Network(networkContainer, graphData, options);
-    }
+        const graphData = {
+            nodes: new vis.DataSet(nodes),
+            edges: new vis.DataSet(edges)
+        };
 
-    // 📄 Crossref sadece tek makale gösterimi
-    function drawBasicNode(data) {
-        const nodes = [{
-            id: data.doi,
-            label: `[MAKALE]\n${data.title.substring(0, 40)}...`,
-            title: `${data.title} (${data.year})`,
-            color: '#9C27B0',
-            size: 30
-        }];
-        const graphData = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet([]) };
         new vis.Network(networkContainer, graphData, options);
     }
 });
