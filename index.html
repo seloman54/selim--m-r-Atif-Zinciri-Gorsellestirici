@@ -26,7 +26,7 @@ input,select,button{ padding:10px 14px; font-size:14px; border-radius:8px; borde
 button{ background:var(--accent); color:#fff; border:none; cursor:pointer; box-shadow:0 3px 6px var(--shadow); }
 #topSummary { max-width:1000px; margin:10px auto; background:var(--card); padding:12px 16px; border-radius:10px; box-shadow:0 6px 18px rgba(0,0,0,0.06); text-align:left; font-size:0.95rem; }
 #networks { display:flex; gap:12px; justify-content:center; align-items:flex-start; width:95%; margin:10px auto; }
-.networkCard { flex:1; min-width:300px; background:var(--card); border-radius:12px; padding:10px; box-shadow:0 10px 24px rgba(0,0,0,0.04); position:relative; }
+.networkCard { flex:1; min-width:300px; background:var(--card); border-radius:12px; padding:10px; box-shadow:0 10px 24px rgba(0,0,0,0.04); position:relative; overflow:hidden; }
 .networkHeader { font-weight:600; color:var(--accent); margin-bottom:8px; text-align:left; }
 #leftNet, #rightNet { width:100%; height:520px; border-radius:10px; background:transparent; }
 #status{ margin:10px; font-weight:500; min-height:20px; }
@@ -36,12 +36,29 @@ button{ background:var(--accent); color:#fff; border:none; cursor:pointer; box-s
 footer{ margin:25px 0; font-size:0.8em; color:gray; }
 footer a{ color:var(--accent); text-decoration:none; }
 
+/* small translucent hint in top-right corner of each network card */
+.zoomHint {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  z-index: 40;
+  background: rgba(255,255,255,0.75);
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #333;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+  pointer-events: none;
+}
+body.dark .zoomHint { background: rgba(20,20,20,0.65); color: #eee; }
+
 .infoBox { position:absolute; left:12px; top:12px; z-index:20; display:none; max-width:320px; background:rgba(255,255,255,0.96); padding:10px 12px; border-radius:8px; box-shadow:0 8px 20px rgba(0,0,0,0.08); text-align:left; font-size:13px; }
 body.dark .infoBox{ background:rgba(20,20,20,0.95); color:#eee; }
 
 @media (max-width:980px){
   #networks { flex-direction:column; }
   #leftNet, #rightNet { height:420px; }
+  .zoomHint { display:none; } /* hide hint on small screens */
 }
 </style>
 </head>
@@ -71,10 +88,12 @@ body.dark .infoBox{ background:rgba(20,20,20,0.95); color:#eee; }
   <div id="networks">
     <div class="networkCard">
       <div class="networkHeader">Atıflar (Sana atıf yapan makaleler) — Yeşil</div>
+      <div class="zoomHint">🖱️ Fare tekerleğiyle yakınlaştırın · Sürükleyin</div>
       <div id="leftNet"></div>
     </div>
     <div class="networkCard">
       <div class="networkHeader">Kaynakçalar (Kök makalenin kullandıkları) — Mavi</div>
+      <div class="zoomHint">🖱️ Fare tekerleğiyle yakınlaştırın · Sürükleyin</div>
       <div id="rightNet"></div>
     </div>
   </div>
@@ -93,11 +112,8 @@ body.dark .infoBox{ background:rgba(20,20,20,0.95); color:#eee; }
 
 <script>
 /* 
-  Düzeltilmiş sürüm:
-  - Etiket çakışlarını azaltmak için yalnızca en önemli düğümlerde etiket gösterme mantığı eklendi.
-  - Physics ayarları biraz açıldı.
-  - Eğer Semantic Scholar references boş dönerse OpenAlex fallback ile references dolduruluyor.
-  - Tasarım / butonlar / UX aynı kaldı.
+  Güncellenmiş: OpenAlex referenced_works -> doğru API endpoint kullanımı,
+  zoomHint eklendi. Tasarım ve çekirdek mantık korunmuştur.
 */
 
 const PROXY = 'https://api.allorigins.win/raw?url='; // proxy for SS
@@ -129,6 +145,16 @@ async function fetchOpenAlex(doi){
   const url = `https://api.openalex.org/works/https://doi.org/${encodeURIComponent(doi)}`;
   const res = await fetch(url);
   if(!res.ok) throw new Error('OpenAlex HTTP ' + res.status);
+  return await res.json();
+}
+
+// fetch OpenAlex work by OpenAlex id (Wxxxx) using API path
+async function fetchOpenAlexWorkById(openalexWorkId){
+  // openalexWorkId may be a URL or id; get last segment
+  const seg = openalexWorkId.split('/').pop();
+  const apiUrl = `https://api.openalex.org/works/${encodeURIComponent(seg)}`;
+  const res = await fetch(apiUrl);
+  if(!res.ok) return null;
   return await res.json();
 }
 
@@ -265,14 +291,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }))
       };
 
-      // If SS references is empty but we have OpenAlex, try to fill references from OpenAlex
+      // If SS references is empty but we have OpenAlex, try to fill references from OpenAlex (using OpenAlex API)
       if(finalData.references.length === 0 && oxResult && oxResult.id){
         try{
           const refs = (oxResult.referenced_works || []).slice(0,200);
           const fetched = [];
           for(let i=0;i<refs.length;i+=25){
             const chunk = refs.slice(i,i+25);
-            const p = await Promise.all(chunk.map(id => fetch(id).then(r=>r.ok?r.json().catch(()=>null):null).catch(()=>null)));
+            const p = await Promise.all(chunk.map(id => fetchOpenAlexWorkById(id).catch(()=>null)));
             p.forEach(r=>{ if(r) fetched.push({ title: r.title, paperId: r.id, doi: r.doi||null, year: r.publication_year||null, citationCount: r.cited_by_count||0, url: r.primary_location?.source_url||null }); });
             await new Promise(r=>setTimeout(r,120));
           }
@@ -295,11 +321,11 @@ document.addEventListener('DOMContentLoaded', () => {
         references: [],
         citations: []
       };
-      // fetch referenced works metadata batched
+      // fetch referenced works metadata batched (use OpenAlex API)
       const refs = (oxResult.referenced_works || []).slice(0,200);
       for(let i=0;i<refs.length;i+=25){
         const chunk = refs.slice(i,i+25);
-        const promises = chunk.map(id => fetch(id).then(r=>r.ok?r.json().catch(()=>null):null).catch(()=>null));
+        const promises = chunk.map(id => fetchOpenAlexWorkById(id).catch(()=>null));
         const results = await Promise.all(promises);
         results.forEach(r => { if(r) base.references.push({ title: r.title, paperId: r.id, doi: r.doi||null, year: r.publication_year||null, citationCount: r.cited_by_count||0, url: r.primary_location?.source_url || null }); });
         await new Promise(r=>setTimeout(r,120));
@@ -359,7 +385,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const n = list.length;
     if(n === 0) return new Set();
     const k = Math.max(20, Math.round(n * 0.12)); // top 12% or at least 20
-    // sort by citationCount (desc)
     const sorted = [...list].sort((a,b)=> (Number(b.citationCount||0) - Number(a.citationCount||0)));
     const top = sorted.slice(0,k).map(x => x.paperId || x.id || x.doi || x.title);
     return new Set(top);
@@ -413,9 +438,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     leftNetwork.on('blurNode', params => {
       const n = leftGraph.nodes.get(params.node);
-      // revert to hidden if it is not in labelled set
-      if(n && !(chooseLabelledNodes(citations).has(n.id))){
-        leftGraph.nodes.update({ id: n.id, label: '' });
+      if(n){
+        const shouldHave = labelledSet.has(n.id);
+        if(!shouldHave) leftGraph.nodes.update({ id: n.id, label: '' });
       }
     });
   }
@@ -467,8 +492,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     rightNetwork.on('blurNode', params => {
       const n = rightGraph.nodes.get(params.node);
-      if(n && !(chooseLabelledNodes(references).has(n.id))){
-        rightGraph.nodes.update({ id: n.id, label: '' });
+      if(n){
+        const shouldHave = labelledSet.has(n.id);
+        if(!shouldHave) rightGraph.nodes.update({ id: n.id, label: '' });
       }
     });
   }
