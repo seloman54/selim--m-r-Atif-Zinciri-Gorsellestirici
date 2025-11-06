@@ -135,20 +135,17 @@ body.dark .centerTitle{ background: rgba(20,20,20,0.8); color: #eee; }
   <footer>© 2025 <b>Selim ÖMÜR</b> — <a href="mailto:omurselim@gmail.com">omurselim@gmail.com</a> — İzinsiz kullanılamaz.</footer>
 
 <script>
-/* Yeni, tam sürüm:
-   - Kaynakça limiti = 50
-   - Semantic Scholar öncelikli; references yoksa OpenAlex fallback (referenced_works)
-   - Abstract temizleme ve OpenAlex fallback for abstract
-   - Merkezi düğüm küçük başlık (centerTitle) gösterme
-   - Oklar daha görünür
+/* DÜZELTME NOTLARI:
+   - DÜZELTME 1: PROXY, 'allorigins.win' (bozuk) yerine 'api.codetabs.com' (stabil) olarak değiştirildi.
+   - DÜZELTME 2: Semantic Scholar URL'si 'encodeURIComponent' (bozuk) kaldırıldı.
+   - DÜZELTME 3: OpenAlex fallback mantığı 'length === 0' yerine 'length < 20' (daha mantıklı) olarak değiştirildi.
 */
 
 // --------------------------------------------------------------------
-// --- DÜZELTME 1: Proxy Değişikliği ---
-// 'allorigins.win' yerine daha stabil olan 'api.codetabs.com' proxy'si kullanıldı.
-// ESKİ: const PROXY = 'https://api.allorigins.win/raw?url=';
+// --- DÜZELTME 1: Proxy Değişikliği ('Wales vs Iran' hatası için) ---
+// const PROXY = 'https://api.allorigins.win/raw?url='; // ESKİ VE BOZUK
+const PROXY = 'https://api.codetabs.com/v1/proxy?quest='; // YENİ VE STABİL
 // --------------------------------------------------------------------
-const PROXY = 'https://api.codetabs.com/v1/proxy?quest='; // proxy for SS
 const SS_TIMEOUT = 3500; // ms
 const OX_REF_LIMIT = 50; // <--- Kullanıcının istediği limit: 50
 const CACHE = new Map();
@@ -161,9 +158,9 @@ function sizeFromCitations(count){
   return Math.round(6 + Math.sqrt(c) * 4);
 }
 
-// fetch via proxy (for Semantic Scholar)
+// fetch via allorigins proxy (for Semantic Scholar)
 async function fetchJsonProxy(url){
-  const attempt = PROXY + encodeURIComponent(url);
+  const attempt = PROXY + encodeURIComponent(url); // Proxy'nin kendisi URL'yi kodlamamızı ister
   const controller = new AbortController();
   const id = setTimeout(()=>controller.abort(), 12000);
   try{
@@ -338,7 +335,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // parallel fetch attempts
     const ssPromise = (async ()=> {
       try{
-        const url = `https://api.semanticscholar.org/graph/v1/paper/DOI:${encodeURIComponent(doi)}?fields=title,year,authors,doi,paperId,url,citationCount,abstract,references.paperId,references.title,references.year,references.doi,citations.paperId,citations.title,citations.year,citations.doi`;
+        // --------------------------------------------------------------------
+        // --- DÜZELTME 2: 'encodeURIComponent(doi)' kaldırıldı ('Not Found' hatası için) ---
+        // const url = `https://api.semanticscholar.org/graph/v1/paper/DOI:${encodeURIComponent(doi)}?fields=...`; // ESKİ VE BOZUK
+        const url = `https://api.semanticscholar.org/graph/v1/paper/DOI:${doi}?fields=title,year,authors,doi,paperId,url,citationCount,abstract,references.paperId,references.title,references.year,references.doi,citations.paperId,citations.title,citations.year,citations.doi`; // YENİ VE DOĞRU
+        // --------------------------------------------------------------------
         return await fetchJsonProxy(url);
       }catch(e){ console.warn('SS fail', e); return null; }
     })();
@@ -395,7 +396,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       // --------------------------------------------------------------------
-      // --- DÜZELTME 2: OpenAlex Fallback Mantığı ---
+      // --- DÜZELTME 3: OpenAlex Fallback Mantığı ---
       // Semantic Scholar yetersiz (<20) kaynakça verirse, OpenAlex'i tetikle.
       // ESKİ HALİ: (!finalData.references || finalData.references.length === 0)
       // --------------------------------------------------------------------
