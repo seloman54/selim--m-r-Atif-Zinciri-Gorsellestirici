@@ -5,11 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>By Selim - Atıf Zinciri Görselleştirici</title>
 
-<!-- vis.js -->
 <script src="https://unpkg.com/vis-network@9.1.2/dist/vis-network.min.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/vis-network@9.1.2/dist/vis-network.min.css" />
 
-<!-- jspdf for export -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <style>
@@ -107,7 +105,7 @@ body.dark .centerTitle{ background: rgba(20,20,20,0.8); color: #eee; }
   <div id="spinner"></div>
   <div id="status">Hazır — DOI girip Ara'ya basın.</div>
 
-  <div id="topSummary"> <!-- summary will be injected here --> Kısa özet: <i>Henüz makale yüklenmedi.</i></div>
+  <div id="topSummary"> Kısa özet: <i>Henüz makale yüklenmedi.</i></div>
 
   <div class="centerTitle" id="centerTitle" style="display:none;"></div>
 
@@ -389,8 +387,13 @@ document.addEventListener('DOMContentLoaded', () => {
         finalData.references = finalData.references.slice(0, OX_REF_LIMIT);
       }
 
-      // If SS references empty or insufficient, fallback to OpenAlex referenced_works (limit OX_REF_LIMIT)
-      if((!finalData.references || finalData.references.length === 0) && oxResult && oxResult.id){
+      // --------------------------------------------------------------------
+      // --- İŞTE DÜZELTME BURADA ---
+      // If SS references empty or INSUFFICIENT (e.g. sample < 20), fallback to OpenAlex referenced_works
+      // ESKİ HALİ: (!finalData.references || finalData.references.length === 0)
+      // YENİ HALİ: (!finalData.references || finalData.references.length < 20)
+      // --------------------------------------------------------------------
+      if((!finalData.references || finalData.references.length < 20) && oxResult && oxResult.id){
         try{
           const refIds = await fetchOpenAlexReferencedWorks(oxResult.id, OX_REF_LIMIT);
           const fetched = [];
@@ -503,158 +506,4 @@ document.addEventListener('DOMContentLoaded', () => {
     const refList = (data.references||[]).filter(x => !(x.year && yearLimit && x.year < yearLimit));
 
     drawNetworkLeft(citList, data);
-    drawNetworkRight(refList, data);
-  }
-
-  function chooseLabelledNodes(list){
-    const n = list.length;
-    if(n === 0) return new Set();
-    const k = Math.max(10, Math.round(n * 0.12)); // top 12% or at least 10 (less aggressive)
-    const sorted = [...list].sort((a,b)=> (Number(b.citationCount||0) - Number(a.citationCount||0)));
-    const top = sorted.slice(0,k).map(x => x.paperId || x.id || x.doi || x.title);
-    return new Set(top);
-  }
-
-  function drawNetworkLeft(citations, data){
-    const nodes = [], edges = [];
-    const mainId = data.paperId || data.doi || 'main';
-    // central node label - single-line short title to avoid overlap
-    const centralShort = (data.title || '').split('\n')[0].slice(0,40) + (data.title && data.title.length>40? '…' : '');
-    nodes.push({ id: mainId, label: centralShort, title: `${data.title||''}\n(${data.year||'?'})`, color:'#f0a30a', size: sizeFromCitations(data.citationCount||0), url: data.url, citationCount: data.citationCount||0 });
-
-    const labelledSet = chooseLabelledNodes(citations);
-    let maxCitation = 0;
-    citations.forEach(it => { const c = Number(it.citationCount||0); if(c>maxCitation) maxCitation = c; });
-
-    citations.forEach(item=>{
-      const id = item.paperId || item.doi || (item.title + '::' + Math.random().toString(36).slice(2,6));
-      const showLabel = labelledSet.has(item.paperId || item.doi || id);
-      nodes.push({ id, label: showLabel ? (item.title||'').substring(0,40) : '', title:`${item.title||''}\nYıl:${item.year||'?'}`, color:'#34A853', size: sizeFromCitations(item.citationCount||0), url: item.doi?`https://doi.org/${item.doi}`: item.url || null, citationCount: item.citationCount||0 });
-      edges.push({ from: id, to: mainId, color:{ color:'#34A853' }, arrows: { to: { enabled: true, type: 'arrow' } } });
-    });
-
-    const uniq = {}; nodes.forEach(n => uniq[n.id] = n);
-    const finalNodes = Object.values(uniq);
-    const gdata = { nodes: new vis.DataSet(finalNodes), edges: new vis.DataSet(edges) };
-
-    if(leftNetwork) leftNetwork.destroy();
-    leftNetwork = new vis.Network(leftEl, gdata, {
-      nodes:{ shape:'dot', font:{ size:10, color: 'var(--text)' } },
-      edges:{ width:2.6, smooth:{ type:'dynamic' }, arrows:{ to:{ enabled:true, scaleFactor:1.2, type:'arrow' } } },
-      physics:{ stabilization:false, barnesHut:{ gravitationalConstant:-2400, springLength:120, springConstant:0.02 } },
-      interaction:{ hover:true, hoverConnectedEdges: true, navigationButtons:true, zoomView:true }
-    });
-
-    leftGraph = gdata;
-    leftNetwork.body.data._maxCitation = maxCitation;
-
-    leftNetwork.on('stabilizationIterationsDone', ()=> { try{ leftNetwork.physics.stop(); }catch(e){} });
-    leftNetwork.on('click', params => {
-      if(params.nodes.length){
-        const node = leftGraph.nodes.get(params.nodes[0]);
-        showInfo(node);
-      } else hideInfo();
-    });
-    leftNetwork.on('doubleClick', params => { if(params.nodes.length){ const node = leftGraph.nodes.get(params.nodes[0]); if(node && node.url) window.open(node.url,'_blank'); } });
-
-    leftNetwork.on('hoverNode', params => {
-      const n = leftGraph.nodes.get(params.node);
-      if(n && !n.label) leftGraph.nodes.update({ id: n.id, label: (n.title||'').split('\n')[0].slice(0,40) });
-      if(n && Number(n.citationCount||0) === leftNetwork.body.data._maxCitation && leftNetwork.body.data._maxCitation>0){
-        infoBox.style.display = 'block';
-        infoBox.style.left = (leftEl.getBoundingClientRect().left + 12) + 'px';
-        infoBox.style.top = (leftEl.getBoundingClientRect().top + 12) + 'px';
-        infoBox.innerHTML = `<strong>Bu makale en fazla atıf alan kaynaktır.</strong><br>${(n.title||'').split('\n')[0]}<br>Atıf sayısı: ${n.citationCount || 0}`;
-      }
-    });
-
-    leftNetwork.on('blurNode', params => {
-      const n = leftGraph.nodes.get(params.node);
-      if(n){
-        const shouldHave = labelledSet.has(n.id);
-        if(!shouldHave) leftGraph.nodes.update({ id: n.id, label: '' });
-      }
-      hideInfo();
-    });
-  }
-
-  function drawNetworkRight(references, data){
-    const nodes = [], edges = [];
-    const mainId = data.paperId || data.doi || 'main';
-    const centralShort = (data.title || '').split('\n')[0].slice(0,40) + (data.title && data.title.length>40? '…' : '');
-    nodes.push({ id: mainId, label: centralShort, title: `${data.title||''}\n(${data.year||'?'})`, color:'#f0a30a', size: sizeFromCitations(data.citationCount||0), url: data.url, citationCount: data.citationCount||0 });
-
-    const labelledSet = chooseLabelledNodes(references);
-    let maxCitation = 0;
-    references.forEach(it => { const c = Number(it.citationCount||0); if(c>maxCitation) maxCitation = c; });
-
-    references.forEach(item=>{
-      const id = item.paperId || item.doi || (item.title + '::' + Math.random().toString(36).slice(2,6));
-      const showLabel = labelledSet.has(item.paperId || item.doi || id);
-      nodes.push({ id, label: showLabel ? (item.title||'').substring(0,40) : '', title:`${item.title||''}\nYıl:${item.year||'?'}`, color:'#4285F4', size: sizeFromCitations(item.citationCount||0), url: item.doi?`https://doi.org/${item.doi}`: item.url || null, citationCount: item.citationCount||0 });
-      edges.push({ from: mainId, to: id, color:{ color:'#4285F4' }, arrows: { to: { enabled: true, type: 'arrow' } } });
-    });
-
-    const uniq = {}; nodes.forEach(n => uniq[n.id] = n);
-    const finalNodes = Object.values(uniq);
-    const gdata = { nodes: new vis.DataSet(finalNodes), edges: new vis.DataSet(edges) };
-
-    if(rightNetwork) rightNetwork.destroy();
-    rightNetwork = new vis.Network(rightEl, gdata, {
-      nodes:{ shape:'dot', font:{ size:10, color: 'var(--text)' } },
-      edges:{ width:2.6, smooth:{ type:'dynamic' }, arrows:{ to:{ enabled:true, scaleFactor:1.2, type:'arrow' } } },
-      physics:{ stabilization:false, barnesHut:{ gravitationalConstant:-2200, springLength:120, springConstant:0.02 } },
-      interaction:{ hover:true, hoverConnectedEdges: true, navigationButtons:true, zoomView:true }
-    });
-
-    rightGraph = gdata;
-    rightNetwork.body.data._maxCitation = maxCitation;
-
-    rightNetwork.on('stabilizationIterationsDone', ()=> { try{ rightNetwork.physics.stop(); }catch(e){} });
-    rightNetwork.on('click', params => {
-      if(params.nodes.length){
-        const node = rightGraph.nodes.get(params.nodes[0]);
-        showInfo(node);
-      } else hideInfo();
-    });
-    rightNetwork.on('doubleClick', params => { if(params.nodes.length){ const node = rightGraph.nodes.get(params.nodes[0]); if(node && node.url) window.open(node.url,'_blank'); } });
-
-    rightNetwork.on('hoverNode', params => {
-      const n = rightGraph.nodes.get(params.node);
-      if(n && !n.label) rightGraph.nodes.update({ id: n.id, label: (n.title||'').split('\n')[0].slice(0,40) });
-      if(n && Number(n.citationCount||0) === rightNetwork.body.data._maxCitation && rightNetwork.body.data._maxCitation>0){
-        infoBox.style.display = 'block';
-        infoBox.style.left = (rightEl.getBoundingClientRect().left + 12) + 'px';
-        infoBox.style.top = (rightEl.getBoundingClientRect().top + 12) + 'px';
-        infoBox.innerHTML = `<strong>Bu makale en fazla atıf alan kaynaktır.</strong><br>${(n.title||'').split('\n')[0]}<br>Atıf sayısı: ${n.citationCount || 0}`;
-      }
-    });
-
-    rightNetwork.on('blurNode', params => {
-      const n = rightGraph.nodes.get(params.node);
-      if(n){
-        const shouldHave = labelledSet.has(n.id);
-        if(!shouldHave) rightGraph.nodes.update({ id: n.id, label: '' });
-      }
-      hideInfo();
-    });
-  }
-
-  function showInfo(node){
-    if(!node) return;
-    infoBox.style.display = 'block';
-    infoBox.style.left = '12px';
-    infoBox.style.top = '12px';
-    infoBox.innerHTML = `<strong>${(node.label && node.label.length>0)?node.label:(node.title||'Başlık').split('\n')[0]}</strong><br>${(node.title||'')}<br>${node.url? `<a href="${node.url}" target="_blank">Makale sayfası</a>` : ''}`;
-  }
-  function hideInfo(){ infoBox.style.display = 'none'; }
-
-  yearFilter.addEventListener('change', ()=>{ if(currentData) renderAll(currentData); });
-
-  // quick debug trigger
-  window.searchPaper = () => { document.getElementById('searchButton').click(); };
-
-}); // DOMContentLoaded end
-</script>
-</body>
-</html>
+    draw
