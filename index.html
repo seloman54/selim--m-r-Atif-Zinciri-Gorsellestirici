@@ -158,7 +158,7 @@ function sizeFromCitations(count){
   return Math.round(6 + Math.sqrt(c) * 4);
 }
 
-// fetch via allorigins proxy (for Semantic Scholar)
+// fetch via proxy (for Semantic Scholar)
 async function fetchJsonProxy(url){
   const attempt = PROXY + encodeURIComponent(url); // Proxy'nin kendisi URL'yi kodlamamızı ister
   const controller = new AbortController();
