@@ -1,292 +1,334 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>By Selim - Atıf Zinciri Görselleştirici</title>
+
   <script src="https://unpkg.com/vis-network@9.1.2/dist/vis-network.min.js"></script>
   <link rel="stylesheet" href="https://unpkg.com/vis-network@9.1.2/dist/vis-network.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
   <style>
-    :root {
-      --bg: linear-gradient(135deg, #f7f9ff, #e9eeff);
-      --text: #111;
-      --card-bg: #fff;
-      --accent: #2b4eff;
-      --shadow: rgba(43, 78, 255, 0.15);
-    }
-    body.dark {
-      --bg: linear-gradient(135deg, #0f1116, #1a1d23);
-      --text: #eee;
-      --card-bg: #1f1f1f;
-      --accent: #00bfff;
-      --shadow: rgba(0, 191, 255, 0.25);
-    }
-
-    body {
-      font-family: "Segoe UI", sans-serif;
-      background: var(--bg);
-      margin: 0;
-      padding: 0;
-      color: var(--text);
-      text-align: center;
-      transition: 0.5s;
-    }
-
-    h1 {
-      margin-top: 20px;
-      color: var(--accent);
-      text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
-    }
-
-    #controls {
-      margin: 20px;
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 10px;
-    }
-
-    input, button, select {
-      padding: 10px 14px;
-      font-size: 1em;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-      outline: none;
-    }
-
-    button {
-      background: var(--accent);
-      color: white;
-      border: none;
-      cursor: pointer;
-      box-shadow: 0 3px 6px var(--shadow);
-      transition: 0.3s;
-    }
-    button:hover { transform: translateY(-1px); opacity: 0.9; }
-
-    #network {
-      width: 90%;
-      height: 550px;
-      background: var(--card-bg);
-      margin: 0 auto;
-      border-radius: 15px;
-      box-shadow: 0 0 25px var(--shadow);
-      transition: all 0.4s;
-      position: relative;
-    }
-
-    #status { margin: 10px; font-weight: 500; }
-
-    #spinner {
-      display: none;
-      border: 4px solid #f3f3f3;
-      border-top: 4px solid var(--accent);
-      border-radius: 50%;
-      width: 30px;
-      height: 30px;
-      margin: 10px auto;
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    #notes {
-      background: rgba(43,78,255,0.07);
-      padding: 12px;
-      border-radius: 10px;
-      max-width: 700px;
-      margin: 10px auto;
-      font-size: 0.9em;
-    }
-
-    footer {
-      margin: 25px 0;
-      font-size: 0.8em;
-      color: gray;
-      opacity: 0.8;
-    }
-    footer a {
-      color: var(--accent);
-      text-decoration: none;
-    }
+    :root { --bg: linear-gradient(135deg,#f7f9ff,#e9eeff); --accent:#2b4eff; --shadow:rgba(43,78,255,0.15); --card:#fff; --text:#111; }
+    body.dark{ --bg: linear-gradient(135deg,#0f1116,#1a1d23); --accent:#00bfff; --card:#1f1f1f; --text:#eee; --shadow:rgba(0,191,255,0.18); }
+    body{ margin:0; font-family:"Segoe UI",sans-serif; background:var(--bg); color:var(--text); text-align:center; transition:0.35s; }
+    h1{ margin:18px 0; color:var(--accent); text-shadow:1px 1px 3px rgba(0,0,0,0.15); }
+    #controls{ margin:20px; display:flex; flex-wrap:wrap; gap:10px; justify-content:center; }
+    input,select,button{ padding:10px 14px; border-radius:8px; border:1px solid #ccc; font-size:14px; }
+    button{ background:var(--accent); color:#fff; border:none; cursor:pointer; box-shadow:0 3px 6px var(--shadow); }
+    #network{ width:90%; height:550px; margin:0 auto; border-radius:15px; background:var(--card); box-shadow:0 0 25px var(--shadow); position:relative; }
+    #status{ margin:10px; font-weight:500; min-height:20px; }
+    #spinner{ display:none; border:4px solid #f3f3f3; border-top:4px solid var(--accent); border-radius:50%; width:30px; height:30px; margin:10px auto; animation:spin 1s linear infinite; }
+    @keyframes spin{ to{ transform:rotate(360deg); } }
+    #notes{ background: rgba(43,78,255,0.07); padding:12px; border-radius:10px; max-width:700px; margin:10px auto; font-size:0.9em; text-align:left; }
+    footer{ margin:25px 0; font-size:0.8em; color:gray; opacity:0.8; }
+    footer a{ color:var(--accent); text-decoration:none; }
+    #centerButton{ position:absolute; right:10px; top:10px; z-index:10; padding:6px 10px; border-radius:8px; background:var(--accent); color:#fff; border:none; cursor:pointer; }
+    #infoBox{ position:absolute; left:12px; top:12px; z-index:10; background:rgba(255,255,255,0.96); padding:8px 10px; border-radius:8px; display:none; box-shadow:0 4px 12px rgba(0,0,0,0.08); font-size:13px; max-width:320px; text-align:left; }
+    body.dark #infoBox{ background:rgba(30,30,30,0.92); color:#eee; }
+    @media (max-width:720px){ #network{ height:440px; } input{ width:200px; } }
   </style>
 </head>
 <body>
   <h1>By Selim - Atıf Zinciri Görselleştirici</h1>
 
   <div id="controls">
-    <input id="paperInput" type="text" placeholder="Makale DOI'si (örn: 10.1038/nature12373)" />
+    <input id="paperInput" placeholder="Makale DOI'si (örn: 10.1109/5.771073)" style="width:360px" />
     <button id="searchButton">Ara</button>
     <button id="sampleButton">🎲 Örnek DOI</button>
-    <select id="yearFilter">
-      <option value="all">Tüm Yıllar</option>
-      <option value="2010">2010+</option>
-      <option value="2015">2015+</option>
-      <option value="2020">2020+</option>
-    </select>
-    <button id="savePng">💾 PNG Kaydet</button>
-    <button id="savePdf">📄 PDF Kaydet</button>
+    <select id="yearFilter"><option value="all">Tüm Yıllar</option><option value="2010">2010+</option><option value="2015">2015+</option><option value="2020">2020+</option></select>
+    <button id="savePNG">💾 Grafiği Kaydet</button>
+    <button id="savePDF">📄 PDF Kaydet</button>
     <button id="themeButton">🌙 Gece Modu</button>
   </div>
 
   <div id="spinner"></div>
-  <div id="status"></div>
-  <div id="network"></div>
+  <div id="status">Hazır — DOI girip Ara'ya basın.</div>
 
-  <div id="notes">
-    🔹 <b>Mavi</b> düğümler kaynakça, <b>yeşil</b> düğümler atıf yapan makalelerdir.<br>
-    🔹 Düğümlere tıklayarak makale sayfasına gidebilirsiniz.<br>
-    🔹 Atıf sayısı yüksek olanlar daha büyük görünür.<br>
-    🔹 Filtre menüsünden yıl aralığını seçebilirsiniz.<br>
-    🔹 Grafik yoğunluğuna göre otomatik konum ayarı yapılır.
+  <div id="network">
+    <div id="infoBox"></div>
+    <button id="centerButton">🎯 Ortala</button>
   </div>
 
-  <footer>
-    © 2025 <b>Selim ÖMÜR</b> | 
-    <a href="mailto:omurselim@gmail.com">omurselim@gmail.com</a> |
-    Tüm hakları saklıdır. İzinsiz kopyalanamaz veya ticari amaçla kullanılamaz.
-  </footer>
+  <div id="notes">
+    🔹 Mavi düğümler kaynakça, yeşiller atıf yapan makalelerdir.<br>
+    🔹 Düğümlere tıklayarak makale sayfasına gidebilirsiniz (çift tık).<br>
+    🔹 Düğümler atıf sayısına göre boyutlanır: <code>size = 5 + Math.sqrt(citationCount) * 4</code>.<br>
+    🔹 Hızlı yükleme için Semantic Scholar ve OpenAlex paralel çalışır; ilk gelen atıf verisi gösterilir.
+  </div>
 
-  <script>
-    const cache = new Map();
+  <footer>© 2025 <b>Selim ÖMÜR</b> | <a href="mailto:omurselim@gmail.com">omurselim@gmail.com</a> | İzinsiz kullanılamaz.</footer>
 
-    async function fetchWithTimeout(url, ms = 8000) {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), ms);
-      try {
-        const res = await fetch(url, { signal: controller.signal });
-        clearTimeout(timeout);
-        if (!res.ok) throw new Error("HTTP Error " + res.status);
-        return await res.json();
-      } catch (e) {
-        clearTimeout(timeout);
-        return null;
+<script>
+/* -------------------------
+  Hızlı, güvenilir atıf çekme mantığı:
+  1) Aynı anda Semantic Scholar (via proxy) ve OpenAlex çağrılır.
+  2) Semantic Scholar hızlı dönerse onun refs/cits kullanılır.
+  3) Eğer SS eksik/boş ise OpenAlex'ten citing works alınır.
+  4) Timeout ile SS yavaşsa OpenAlex devreye girer (daha hızlı UX).
+  ------------------------- */
+
+const PROXY = 'https://api.allorigins.win/raw?url='; // proxy for Semantic Scholar (change if needed)
+const SS_TIMEOUT = 4000; // ms - if SS doesn't reply fast, we'll still use OpenAlex result
+const CACHE = new Map();
+
+function timeoutPromise(ms) {
+  return new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms));
+}
+
+async function fetchJsonWithProxy(url, timeoutMs = 8000) {
+  // fetch via proxy to avoid CORS; parse safely
+  try {
+    const res = await fetch(PROXY + encodeURIComponent(url), { signal: (new AbortController()).signal });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const text = await res.text();
+    if (!text) throw new Error('Empty response');
+    return JSON.parse(text);
+  } catch (e) {
+    // bubble up
+    throw e;
+  }
+}
+
+async function trySemanticScholarMain(doi) {
+  const url = `https://api.semanticscholar.org/graph/v1/paper/DOI:${encodeURIComponent(doi)}?fields=title,year,authors,doi,paperId,url,citationCount,references.paperId,references.title,references.year,references.doi,citations.paperId,citations.title,citations.year,citations.doi`;
+  return fetchJsonWithProxy(url);
+}
+
+async function tryOpenAlexMain(doi) {
+  const url = `https://api.openalex.org/works/https://doi.org/${encodeURIComponent(doi)}`;
+  // OpenAlex supports CORS; direct fetch
+  const res = await fetch(url);
+  if(!res.ok) throw new Error('OpenAlex HTTP ' + res.status);
+  return await res.json();
+}
+
+function sizeFromCitations(count) {
+  const c = Math.max(0, Number(count) || 0);
+  return Math.round(5 + Math.sqrt(c) * 4);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('paperInput');
+  const searchBtn = document.getElementById('searchButton');
+  const sampleBtn = document.getElementById('sampleButton');
+  const spinner = document.getElementById('spinner');
+  const status = document.getElementById('status');
+  const container = document.getElementById('network');
+  const centerBtn = document.getElementById('centerButton');
+  const savePNG = document.getElementById('savePNG');
+  const savePDF = document.getElementById('savePDF');
+  const themeBtn = document.getElementById('themeButton');
+  const yearFilter = document.getElementById('yearFilter');
+  const infoBox = document.getElementById('infoBox');
+
+  let network = null, graphData = null;
+
+  // UI events
+  themeBtn.onclick = () => {
+    document.body.classList.toggle('dark');
+    themeBtn.textContent = document.body.classList.contains('dark') ? '☀️ Gündüz Modu' : '🌙 Gece Modu';
+  };
+  sampleBtn.onclick = () => { input.value = '10.1109/5.771073'; searchPaper(); };
+  input.addEventListener('keyup', e => { if(e.key === 'Enter') searchPaper(); });
+  searchBtn.onclick = searchPaper;
+  centerBtn.onclick = () => { if(network) network.fit({ animation: { duration: 600 } }); };
+
+  savePNG.onclick = () => {
+    if(!network) return alert('Önce grafik oluşturun!');
+    const canvas = network.canvas.frame.canvas;
+    const a = document.createElement('a'); a.href = canvas.toDataURL('image/png'); a.download = 'atif-grafik.png'; a.click();
+  };
+  savePDF.onclick = () => {
+    if(!network) return alert('Önce grafik oluşturun!');
+    const canvas = network.canvas.frame.canvas;
+    const img = canvas.toDataURL('image/png');
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'landscape' });
+    const w = pdf.internal.pageSize.getWidth(), h = pdf.internal.pageSize.getHeight();
+    pdf.addImage(img, 'PNG', 10, 10, w-20, h-20);
+    pdf.save('atif-grafik.pdf');
+  };
+
+  async function searchPaper() {
+    const doi = input.value.trim();
+    if(!doi) { status.textContent = '⚠️ Lütfen DOI girin.'; return; }
+    if(CACHE.has(doi)) {
+      drawGraph(CACHE.get(doi));
+      status.textContent = '⚡ Önbellekten hızlı yüklendi.';
+      return;
+    }
+
+    spinner.style.display = 'inline-block';
+    status.textContent = '🔍 Veriler çekiliyor (hızlı mod)...';
+
+    // Start both requests in parallel, but don't wait too long for SS
+    const ssPromise = trySemanticScholarMain(doi).catch(e => { console.warn('SS main failed', e); return null; });
+    const oxPromise = tryOpenAlexMain(doi).catch(e => { console.warn('OpenAlex main failed', e); return null; });
+
+    // Wait for whichever returns first among:
+    // - SS completes within SS_TIMEOUT OR OpenAlex completes faster
+    let ssResult = null, oxResult = null;
+    try {
+      ssResult = await Promise.race([ ssPromise, timeoutPromise(SS_TIMEOUT).then(()=>{throw new Error('ss-timeout')} ) ]).catch(e => { console.warn('ss race err', e); return null; });
+    } catch(e) { ssResult = null; }
+    // also await ox quickly (but don't block too long)
+    oxResult = await Promise.race([ oxPromise, timeoutPromise(SS_TIMEOUT).then(()=>null) ]).catch(()=>null);
+
+    // If SS came back and has citations/references arrays non-empty -> use SS fully
+    let finalData = null;
+    if(ssResult && ( (Array.isArray(ssResult.citations) && ssResult.citations.length>0) || (Array.isArray(ssResult.references) && ssResult.references.length>0) ) ) {
+      // Normalize SS structure into our data shape
+      finalData = {
+        source: 'semantic_scholar',
+        title: ssResult.title,
+        year: ssResult.year,
+        doi: ssResult.doi,
+        paperId: ssResult.paperId,
+        url: ssResult.url || (ssResult.doi ? `https://doi.org/${ssResult.doi}` : null),
+        citationCount: ssResult.citationCount || 0,
+        references: (ssResult.references||[]).map(r => ({
+          title: r.title || (r.reference && r.reference.title) || 'Başlık',
+          paperId: r.paperId || (r.reference && r.reference.paperId) || r.reference?.doi || null,
+          doi: r.doi || r.reference?.doi || null,
+          year: r.year || r.reference?.year || null,
+          citationCount: r.citationCount || r.reference?.citationCount || 0,
+          url: null
+        })),
+        citations: (ssResult.citations||[]).map(c => ({
+          title: c.title || (c.citingPaper && c.citingPaper.title) || 'Başlık',
+          paperId: c.paperId || (c.citingPaper && c.citingPaper.paperId) || c.citingPaper?.doi || null,
+          doi: c.doi || c.citingPaper?.doi || null,
+          year: c.year || c.citingPaper?.year || null,
+          citationCount: c.citationCount || c.citingPaper?.citationCount || 0,
+          url: null
+        }))
+      };
+    } else {
+      // SS not helpful; rely on OpenAlex if available
+      if(!oxResult) {
+        // If neither helpful, try awaiting SS fully (longer), but with safe catch
+        try { ssResult = await ssPromise; } catch(e){ ssResult = null; }
+      }
+      if(oxResult && oxResult.id) {
+        // Build data from OpenAlex; then fetch citing works (limit)
+        const base = {
+          source: 'openalex',
+          title: oxResult.title,
+          year: oxResult.publication_year,
+          doi: doi,
+          paperId: oxResult.id,
+          url: oxResult.open_access?.oa_url || `https://openalex.org/${oxResult.id.split('/').pop()}`,
+          citationCount: oxResult.cited_by_count || 0,
+          references: [],
+          citations: []
+        };
+        // fetch referenced works metadata (limited)
+        const refs = (oxResult.referenced_works || []).slice(0,200);
+        // fire parallel fetches but limit concurrency (simple batching)
+        const refChunks = [];
+        for(let i=0;i<refs.length;i+=25) refChunks.push(refs.slice(i,i+25));
+        for(const chunk of refChunks){
+          const p = await Promise.all(chunk.map(id => fetch(id).then(r=>r.ok?r.json().catch(()=>null):null).catch(()=>null)));
+          p.forEach(r=>{
+            if(r) base.references.push({ title: r.title, paperId: r.id, doi: r.doi || null, year: r.publication_year || null, citationCount: r.cited_by_count||0, url: r.primary_location?.source_url || null });
+          });
+          await new Promise(r=>setTimeout(r,120)); // small pause
+        }
+        // fetch citing works (first 200)
+        try{
+          const citesResp = await fetch(`https://api.openalex.org/works?filter=cites:${encodeURIComponent(oxResult.id)}&per_page=200`);
+          if(citesResp.ok){
+            const cj = await citesResp.json();
+            (cj.results || []).forEach(r => base.citations.push({ title: r.title, paperId: r.id, doi: r.doi || null, year: r.publication_year || null, citationCount: r.cited_by_count||0, url: r.primary_location?.source_url || null }));
+          }
+        } catch(e){ console.warn('openalex cites err', e); }
+        finalData = base;
+      } else if(ssResult) {
+        // SS returned but lacked arrays — still use SS minimal
+        finalData = {
+          source: 'semantic_scholar_min',
+          title: ssResult.title,
+          year: ssResult.year,
+          doi: ssResult.doi,
+          paperId: ssResult.paperId,
+          url: ssResult.url || (ssResult.doi ? `https://doi.org/${ssResult.doi}` : null),
+          citationCount: ssResult.citationCount || 0,
+          references: (ssResult.references || []).map(r => ({ title: r.title || r.reference?.title || 'Başlık', paperId: r.paperId || r.reference?.paperId || null, doi: r.doi || r.reference?.doi || null, year: r.year || r.reference?.year || null, citationCount: r.citationCount || r.reference?.citationCount || 0, url: null })),
+          citations: (ssResult.citations || []).map(c => ({ title: c.title || c.citingPaper?.title || 'Başlık', paperId: c.paperId || c.citingPaper?.paperId || null, doi: c.doi || c.citingPaper?.doi || null, year: c.year || c.citingPaper?.year || null, citationCount: c.citationCount || c.citingPaper?.citationCount || 0, url: null }))
+        };
+      } else {
+        spinner.style.display = 'none';
+        status.textContent = '❌ Veri alınamadı: Her iki kaynak da cevap vermedi.';
+        return;
       }
     }
 
-    document.addEventListener("DOMContentLoaded", () => {
-      const input = document.getElementById("paperInput");
-      const btn = document.getElementById("searchButton");
-      const sampleBtn = document.getElementById("sampleButton");
-      const spinner = document.getElementById("spinner");
-      const status = document.getElementById("status");
-      const container = document.getElementById("network");
-      const savePng = document.getElementById("savePng");
-      const savePdf = document.getElementById("savePdf");
-      const themeBtn = document.getElementById("themeButton");
-      const yearFilter = document.getElementById("yearFilter");
+    // Cache and draw
+    CACHE.set(doi, finalData);
+    drawGraph(finalData);
+    spinner.style.display = 'none';
+    status.textContent = `✅ "${finalData.title || doi}" yüklendi. (refs:${finalData.references.length}, cits:${finalData.citations.length})`;
+  } // end searchPaper
 
-      let network, fullData;
+  function drawGraph(data) {
+    const yearLimit = yearFilter.value === 'all' ? 0 : parseInt(yearFilter.value);
+    const nodes = [], edges = [];
 
-      themeBtn.onclick = () => {
-        document.body.classList.toggle("dark");
-        themeBtn.textContent = document.body.classList.contains("dark") ? "☀️ Gündüz Modu" : "🌙 Gece Modu";
-      };
+    const mainId = data.paperId || data.doi || data.title || 'main';
+    nodes.push({ id: mainId, label:`[ANA]\n${(data.title||'').substring(0,40)}...`, title:`${data.title||''}\n(${data.year||'?'})\nAtıf:${data.citationCount||0}`, color:'#f0a30a', size: sizeFromCitations(data.citationCount||0), url: data.url || (data.doi?`https://doi.org/${data.doi}`:null) });
 
-      sampleBtn.onclick = () => {
-        const samples = ["10.1109/5.771073","10.1038/nature12373","10.48550/arXiv.1706.03762"];
-        input.value = samples[Math.floor(Math.random() * samples.length)];
-        searchPaper();
-      };
+    const add = (list, color, dir) => {
+      (list||[]).forEach(item=>{
+        if(item.year && yearLimit && item.year < yearLimit) return;
+        const id = item.paperId || item.doi || (item.title + '::' + Math.random().toString(36).slice(2,6));
+        nodes.push({ id, label:(item.title||'Başlık').substring(0,40), title: `${item.title||''}\nYıl:${item.year||'?'}`, color, size: sizeFromCitations(item.citationCount||0), url: item.doi?`https://doi.org/${item.doi}`: (item.url||null) });
+        edges.push(dir==='ref' ? { from: mainId, to: id, color:{ color } } : { from: id, to: mainId, color:{ color } });
+      });
+    };
 
-      input.addEventListener("keyup", e => { if (e.key === "Enter") searchPaper(); });
-      btn.addEventListener("click", searchPaper);
+    add(data.references || [], '#4285F4', 'ref');
+    add(data.citations || [], '#34A853', 'cit');
 
-      savePng.onclick = () => {
-        if (!network) return alert("Önce grafik oluşturun.");
-        const canvas = network.canvas.frame.canvas;
-        const a = document.createElement("a");
-        a.href = canvas.toDataURL("image/png");
-        a.download = "atif-grafik.png";
-        a.click();
-      };
+    // dedupe
+    const uniq = {};
+    nodes.forEach(n => uniq[n.id] = n);
+    const finalNodes = Object.values(uniq);
 
-      savePdf.onclick = () => {
-        if (!network) return alert("Önce grafik oluşturun.");
-        const canvas = network.canvas.frame.canvas;
-        const pdf = new jspdf.jsPDF({ orientation: "landscape" });
-        pdf.addImage(canvas.toDataURL("image/png"), "PNG", 10, 10, 270, 180);
-        pdf.save("atif-grafik.pdf");
-      };
+    graphData = { nodes: new vis.DataSet(finalNodes), edges: new vis.DataSet(edges) };
+    if(network) network.destroy();
+    network = new vis.Network(container, graphData, {
+      nodes:{ shape:'dot', font:{ size:14 } },
+      edges:{ width:1.8, smooth:{ type:'dynamic' }, arrows:{ to:{ enabled:true, scaleFactor:0.5 } } },
+      physics:{ stabilization:false, barnesHut:{ springLength: 140 } },
+      interaction:{ hover:true }
+    });
 
-      async function searchPaper() {
-        const doi = input.value.trim();
-        if (!doi) return (status.textContent = "⚠️ Lütfen DOI girin.");
-        if (cache.has(doi)) {
-          drawGraph(cache.get(doi));
-          status.textContent = "⚡ Önceden yüklenen veri kullanıldı.";
-          return;
-        }
+    network.on('stabilizationIterationsDone', () => { try{ network.physics.stop(); }catch(e){} });
 
-        spinner.style.display = "inline-block";
-        status.textContent = "🔍 Veri çekiliyor...";
+    network.on('click', params => {
+      if(params.nodes.length){
+        const node = graphData.nodes.get(params.nodes[0]);
+        infoBox.style.display = 'block';
+        infoBox.innerHTML = `<strong>${node.label}</strong><br>${node.title || ''}<br>${node.url ? `<a href="${node.url}" target="_blank">Makale sayfası</a>` : ''}`;
+      } else infoBox.style.display = 'none';
+    });
 
-        const s1 = `https://api.semanticscholar.org/graph/v1/paper/DOI:${encodeURIComponent(doi)}?fields=title,year,authors,references.paperId,references.title,references.year,citations.paperId,citations.title,citations.year`;
-        const s2 = `https://api.openalex.org/works/https://doi.org/${encodeURIComponent(doi)}`;
-
-        const [data1, data2] = await Promise.allSettled([fetchWithTimeout(s1), fetchWithTimeout(s2)]);
-        const data = data1.value || data2.value;
-
-        if (!data) {
-          spinner.style.display = "none";
-          status.textContent = "❌ Veri alınamadı. DOI'yi kontrol edin.";
-          return;
-        }
-
-        fullData = data;
-        cache.set(doi, data);
-        drawGraph(data);
-        spinner.style.display = "none";
-        status.textContent = `✅ "${data.title || "Makale"}" yüklendi.`;
-      }
-
-      function drawGraph(data) {
-        const yearLimit = yearFilter.value === "all" ? 0 : parseInt(yearFilter.value);
-        const nodes = [], edges = [];
-        const mainId = data.paperId || data.id || data.doi || "main";
-
-        nodes.push({
-          id: mainId,
-          label: `[ANA]\n${(data.title || "Başlıksız").substring(0, 40)}...`,
-          title: `${data.title}\n(${data.year || "?"})`,
-          color: "#f0a30a",
-          size: 40
-        });
-
-        const addNodes = (list, color, dir) => {
-          (list || []).forEach(p => {
-            if (p.year && p.year < yearLimit) return;
-            const size = Math.min(15 + Math.random() * 10, 25);
-            nodes.push({
-              id: p.paperId || p.id || Math.random(),
-              label: (p.title || "Başlık yok").substring(0, 35),
-              color,
-              title: `${p.title || "Başlık yok"}\nYıl: ${p.year || "?"}`,
-              url: `https://www.semanticscholar.org/paper/${p.paperId || ""}`,
-              size
-            });
-            edges.push(dir === "ref" ? { from: mainId, to: p.paperId } : { from: p.paperId, to: mainId });
-          });
-        };
-
-        addNodes(data.references, "#4285F4", "ref");
-        addNodes(data.citations, "#34A853", "cit");
-
-        const graphData = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
-        network = new vis.Network(container, graphData, {
-          nodes: { shape: "dot", font: { size: 14, color: "var(--text)" } },
-          edges: { width: 1.8, smooth: { type: "dynamic" }, arrows: { to: { enabled: true, scaleFactor: 0.5 } } },
-          physics: { stabilization: false, barnesHut: { springLength: 150 } }
-        });
-
-        network.on("click", p => {
-          if (p.nodes.length > 0) {
-            const node = graphData.nodes.get(p.nodes[0]);
-            if (node.url) window.open(node.url, "_blank");
-          }
-        });
+    network.on('doubleClick', params => {
+      if(params.nodes.length){
+        const node = graphData.nodes.get(params.nodes[0]);
+        if(node && node.url) window.open(node.url, '_blank');
       }
     });
-  </script>
+
+    centerBtn.onclick = ()=> { if(network) network.fit({ animation:{ duration: 600 } }); };
+  }
+
+  // expose for debug
+  window.searchPaper = () => { document.getElementById('searchButton').click(); };
+
+}); // DOMContentLoaded end
+</script>
 </body>
 </html>
