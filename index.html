@@ -58,30 +58,13 @@ body.dark .zoomHint { background: rgba(20,20,20,0.65); color: #eee; }
 .infoBox { position:absolute; left:12px; top:12px; z-index:60; display:none; max-width:420px; background:rgba(255,255,255,0.96); padding:10px 12px; border-radius:8px; box-shadow:0 8px 20px rgba(0,0,0,0.08); text-align:left; font-size:13px; }
 body.dark .infoBox{ background:rgba(20,20,20,0.95); color:#eee; }
 
-/* small centered title text above center node (subtle) */
-.centerTitle {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  top: 142px; /* roughly above the center node region */
-  z-index: 30;
-  background: rgba(255,255,255,0.85);
-  padding: 6px 10px;
-  border-radius: 8px;
-  font-size: 13px;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
-  max-width: 640px;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-body.dark .centerTitle{ background: rgba(20,20,20,0.8); color: #eee; }
+/* .centerTitle CSS bloğu isteğiniz üzerine KALDIRILDI */
 
 @media (max-width:980px){
   #networks { flex-direction:column; }
   #leftNet, #rightNet { height:420px; }
   .zoomHint { display:none; } /* hide hint on small screens */
-  .centerTitle{ top:110px; font-size:12px; max-width:320px; }
+  /* .centerTitle @media bloğu isteğiniz üzerine KALDIRILDI */
 }
 </style>
 </head>
@@ -108,8 +91,6 @@ body.dark .centerTitle{ background: rgba(20,20,20,0.8); color: #eee; }
 
   <div id="topSummary"> Kısa özet: <i>Henüz makale yüklenmedi.</i></div>
 
-  <div class="centerTitle" id="centerTitle" style="display:none;"></div>
-
   <div id="networks">
     <div class="networkCard">
       <div class="networkHeader leftHeader">Atıflar (Ana makaleye atıf yapan makaleler) — Yeşil</div>
@@ -132,9 +113,11 @@ body.dark .centerTitle{ background: rgba(20,20,20,0.8); color: #eee; }
 <script>
 /* DÜZELTME NOTLARI:
    - DÜZELTME 1 (ÖZET HATASI): PROXY, 'allorigins.win' (bozuk) yerine 'api.codetabs.com' (stabil) olarak değiştirildi.
-   - DÜZELTME 2 (KAYNAKÇA HATASI): Semantic Scholar URL'sindeki 'encodeURIComponent' (bozuk) kaldırıldı.
+   - DÜZELTME 2 (API HATASI): Semantic Scholar URL'sindeki 'encodeURIComponent' (bozuk) kaldırıldı.
    - DÜZELTME 3 (İSTEK): 'drawNetworkRight' fonksiyonu ve ilgili tüm çağrılar kaldırıldı.
    - DÜZELTME 4 (İSTEK): API isteğinden 'references' alanları kaldırıldı (optimizasyon).
+   - DÜZELTME 5 (İSTEK): Örnek DOI düğmesi 3'lü döngüye alındı (yeni liste).
+   - DÜZELTME 6 (İSTEK): .centerTitle (şeffaf başlık) kaldırıldı.
 */
 
 // --------------------------------------------------------------------
@@ -145,6 +128,16 @@ const PROXY = 'https://api.codetabs.com/v1/proxy?quest='; // YENİ VE STABİL
 const SS_TIMEOUT = 3500; // ms
 const OX_REF_LIMIT = 50;
 const CACHE = new Map();
+
+// --- DÜZELTME 5: Sıralı Örnek DOI Listesi (İsteğiniz üzerine güncellendi) ---
+const sampleDOIs = [
+    '10.31592/aeusbed.598299',
+    '10.53718/gttad.1538167',
+    '10.1080/21650373.2025.2514657'
+];
+let sampleIndex = 0;
+// --- DÜZELTME 5 SONU ---
+
 
 function timeoutPromise(ms) { return new Promise((_, rej) => setTimeout(()=>rej(new Error('timeout')), ms)); }
 
@@ -258,7 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const themeBtn = document.getElementById('themeBtn');
   const yearFilter = document.getElementById('yearFilter');
   const infoBox = document.getElementById('infoBox');
-  const centerTitle = document.getElementById('centerTitle');
+  // const centerTitle = document.getElementById('centerTitle'); // KALDIRILDI
 
   let leftNetwork = null, rightNetwork = null; // rightNetwork artık kullanılmıyor
   let leftGraph = null, rightGraph = null; // rightGraph artık kullanılmıyor
@@ -266,7 +259,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   themeBtn.onclick = ()=> { document.body.classList.toggle('dark'); themeBtn.textContent = document.body.classList.contains('dark') ? '☀️' : '🌙'; };
 
-  sampleButton.onclick = () => { input.value = '10.1109/5.771073'; searchPaper(); };
+  // --- DÜZELTME 5: Örnek DOI düğmesi güncellendi ---
+  sampleButton.onclick = () => {
+    const doi = sampleDOIs[sampleIndex];
+    input.value = doi;
+    sampleIndex = (sampleIndex + 1) % sampleDOIs.length; // Sıradakine geç
+    searchPaper(); 
+  };
+  // --- DÜZELTME 5 SONU ---
+
   input.addEventListener('keyup', e => { if(e.key==='Enter') searchPaper(); });
   searchButton.onclick = searchPaper;
 
@@ -300,8 +301,8 @@ document.addEventListener('DOMContentLoaded', () => {
     spinner.style.display = 'inline-block';
     status.textContent = '🔍 Veriler çekiliyor (Semantic Scholar öncelikli, OpenAlex fallback)...';
     topSummary.innerHTML = 'Kısa özet: <i>Yükleniyor...</i>';
-    centerTitle.style.display = 'none';
-    centerTitle.textContent = '';
+    // centerTitle.style.display = 'none'; // KALDIRILDI
+    // centerTitle.textContent = ''; // KALDIRILDI
 
     // parallel fetch attempts
     const ssPromise = (async ()=> {
@@ -356,7 +357,7 @@ document.addEventListener('DOMContentLoaded', () => {
       };
 
       // If SS abstract seems broken (very short or contains obvious scraped content), try OpenAlex abstract
-      if((!finalData.abstract || finalData.abstract.length < 30 || finalData.abstract.includes("Wales vs Iran")) && oxResult && oxResult.abstract_inverted_index){
+      if((!finalData.abstract || finalData.abstract.length < 30 || (finalData.abstract && finalData.abstract.includes("Wales vs Iran"))) && oxResult && oxResult.abstract_inverted_index){
         const oxAbs = openAlexAbstractToText(oxResult.abstract_inverted_index);
         const cleaned = cleanAbstract(oxAbs);
         if(cleaned && cleaned.length > (finalData.abstract?finalData.abstract.length:0)){
@@ -422,13 +423,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const abs = data.abstract ? (data.abstract.length>700 ? data.abstract.slice(0,700)+'…' : data.abstract) : '<i>Özet bulunamadı.</i>';
     topSummary.innerHTML = `<strong>${data.title || ''}</strong> (${data.year || '?'})<br><small>${abs}</small>`;
 
-    // show small centered title above main area
-    if(data.title){
-      centerTitle.style.display = 'block';
-      centerTitle.textContent = (data.title.length>120? data.title.slice(0,120)+'…' : data.title);
-    } else {
-      centerTitle.style.display = 'none';
-    }
+    // .centerTitle bloğu isteğiniz üzerine KALDIRILDI
 
     const yearLimit = yearFilter.value === 'all' ? 0 : parseInt(yearFilter.value);
     const citList = (data.citations||[]).filter(x => !(x.year && yearLimit && x.year < yearLimit));
