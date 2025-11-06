@@ -24,7 +24,8 @@ input,select,button{ padding:10px 14px; font-size:14px; border-radius:8px; borde
 button{ background:var(--accent); color:#fff; border:none; cursor:pointer; box-shadow:0 3px 6px var(--shadow); }
 #topSummary { max-width:1100px; margin:10px auto; background:var(--card); padding:12px 16px; border-radius:10px; box-shadow:0 6px 18px rgba(0,0,0,0.06); text-align:left; font-size:0.95rem; }
 #networks { display:flex; gap:12px; justify-content:center; align-items:flex-start; width:95%; margin:10px auto; }
-.networkCard { flex:1; min-width:300px; background:var(--card); border-radius:12px; padding:10px; box-shadow:0 10px 24px rgba(0,0,0,0.04); position:relative; overflow:hidden; }
+/* Değişiklik: Kartın genişlemesini engellemek için max-width eklendi */
+.networkCard { flex: 0 1 900px; min-width:300px; background:var(--card); border-radius:12px; padding:10px; box-shadow:0 10px 24px rgba(0,0,0,0.04); position:relative; overflow:hidden; }
 .networkHeader { font-weight:600; color:var(--accent); margin-bottom:8px; text-align:left; }
 #leftNet, #rightNet { width:100%; height:520px; border-radius:10px; background:transparent; }
 #status{ margin:10px; font-weight:500; min-height:20px; }
@@ -115,18 +116,12 @@ body.dark .centerTitle{ background: rgba(20,20,20,0.8); color: #eee; }
       <div class="zoomHint">🖱️ Fare tekerleğiyle yakınlaştırın · Sürükleyin</div>
       <div id="leftNet"></div>
     </div>
-    <div class="networkCard">
-      <div class="networkHeader">Kaynakçalar (Kök makalenin kullandıkları) — Mavi</div>
-      <div class="zoomHint">🖱️ Fare tekerleğiyle yakınlaştırın · Sürükleyin</div>
-      <div id="rightNet"></div>
-    </div>
   </div>
 
   <div class="infoBox" id="infoBox"></div>
 
   <div id="notes">
     🔹 Sol: ana makaleye atıf yapan çalışmalar (citations).<br>
-    🔹 Sağ: makalenin kaynakçası (references). ⚠️ **En fazla 50 kaynakça gösterilir.**<br>
     🔹 Özet: önce Semantic Scholar tercih edilir; sağlamazsa OpenAlex kullanılır. Özetler otomatik temizlenir.<br>
     🔹 Düğümlere tıklayarak makale sayfasına gidebilirsiniz (çift tık).<br>
     🔹 Topların büyüklük farkı, makalelerin aldığı atıf sayısına göredir (daha büyük top = daha çok atıf).<br>
@@ -136,9 +131,10 @@ body.dark .centerTitle{ background: rgba(20,20,20,0.8); color: #eee; }
 
 <script>
 /* DÜZELTME NOTLARI:
-   - DÜZELTME 1: PROXY, 'allorigins.win' (bozuk) yerine 'api.codetabs.com' (stabil) olarak değiştirildi.
-   - DÜZELTME 2: Semantic Scholar URL'si 'encodeURIComponent' (bozuk) kaldırıldı.
-   - DÜZELTME 3: OpenAlex fallback mantığı 'length === 0' yerine 'length < 20' (daha mantıklı) olarak değiştirildi.
+   - DÜZELTME 1 (ÖZET HATASI): PROXY, 'allorigins.win' (bozuk) yerine 'api.codetabs.com' (stabil) olarak değiştirildi.
+   - DÜZELTME 2 (KAYNAKÇA HATASI): Semantic Scholar URL'sindeki 'encodeURIComponent' (bozuk) kaldırıldı.
+   - DÜZELTME 3 (İSTEK): 'drawNetworkRight' fonksiyonu ve ilgili tüm çağrılar kaldırıldı.
+   - DÜZELTME 4 (İSTEK): API isteğinden 'references' alanları kaldırıldı (optimizasyon).
 */
 
 // --------------------------------------------------------------------
@@ -147,7 +143,7 @@ body.dark .centerTitle{ background: rgba(20,20,20,0.8); color: #eee; }
 const PROXY = 'https://api.codetabs.com/v1/proxy?quest='; // YENİ VE STABİL
 // --------------------------------------------------------------------
 const SS_TIMEOUT = 3500; // ms
-const OX_REF_LIMIT = 50; // <--- Kullanıcının istediği limit: 50
+const OX_REF_LIMIT = 50;
 const CACHE = new Map();
 
 function timeoutPromise(ms) { return new Promise((_, rej) => setTimeout(()=>rej(new Error('timeout')), ms)); }
@@ -171,6 +167,8 @@ async function fetchJsonProxy(url){
     if(!txt) throw new Error('Empty response from proxy');
     // api.codetabs.com bazen 404'ü düzgün vermiyor, 'Not found' metni veriyor
     if(txt.includes('Not Found') || txt.includes('not found')) throw new Error('Proxy API 404');
+    // 'allorigins'in 'Wales vs Iran' hatasını da yakala
+    if(txt.includes('Wales vs Iran')) throw new Error('Proxy (allorigins) hatası');
     return JSON.parse(txt);
   } catch(e){
     clearTimeout(id);
@@ -186,7 +184,7 @@ async function fetchOpenAlex(doi){
   return await res.json();
 }
 
-// fetch referenced_works ids for OpenAlex work (limit OX_REF_LIMIT)
+// Artık kullanılmıyor ama zararı yok
 async function fetchOpenAlexReferencedWorks(openalexWorkId, per_page = OX_REF_LIMIT){
   try{
     const seg = openalexWorkId.split('/').pop();
@@ -223,35 +221,22 @@ function openAlexAbstractToText(inv){
   }catch(e){ return null; }
 }
 
-// strong cleaning for abstracts: remove urls, weird tokens, multiple spaces, odd emojis, long numeric garbage
+// strong cleaning for abstracts
 function cleanAbstract(s){
   if(!s) return null;
   try{
     let t = String(s);
-
-    // If it's large HTML or weird text, strip tags
     t = t.replace(/<\/?[^>]+(>|$)/g, ' ');
-
-    // remove URLs
     t = t.replace(/https?:\/\/\S+/gi, ' ');
-    // remove email-like
     t = t.replace(/\S+@\S+\.\S+/g, ' ');
-    // remove escape sequences like \n \t and duplicated backslashes
     t = t.replace(/\\n|\\r|\\t|\\\\/g, ' ');
-    // remove long runs of punctuation / emojis (keep basic punctuation)
     t = t.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]+/gu, ' ');
-    // remove control characters
     t = t.replace(/[\x00-\x1F\x7F]/g, ' ');
-    // collapse whitespace
     t = t.replace(/\s+/g, ' ').trim();
-    // remove repeated short tokens like "…", "—" excessive
     t = t.replace(/…+/g, '…');
-    // if the text contains nonsense patterns like "Wales vs Iran" with many time tokens from scraped web, try to trim to first 600 chars
     if(t.length > 1200) t = t.slice(0, 1200) + '…';
-    // final safety: if still contains many non-letter characters, remove sequences longer than 30 of non-space
     t = t.replace(/\S{200,}/g, ' ');
     t = t.replace(/\s+/g, ' ').trim();
-
     if(t.length === 0) return null;
     return t;
   }catch(e){
@@ -266,7 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const spinner = document.getElementById('spinner');
   const status = document.getElementById('status');
   const leftEl = document.getElementById('leftNet');
-  const rightEl = document.getElementById('rightNet');
+  // const rightEl = document.getElementById('rightNet'); // KALDIRILDI
   const topSummary = document.getElementById('topSummary');
   const savePng = document.getElementById('savePng');
   const savePdf = document.getElementById('savePdf');
@@ -275,8 +260,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const infoBox = document.getElementById('infoBox');
   const centerTitle = document.getElementById('centerTitle');
 
-  let leftNetwork = null, rightNetwork = null;
-  let leftGraph = null, rightGraph = null;
+  let leftNetwork = null, rightNetwork = null; // rightNetwork artık kullanılmıyor
+  let leftGraph = null, rightGraph = null; // rightGraph artık kullanılmıyor
   let currentData = null;
 
   themeBtn.onclick = ()=> { document.body.classList.toggle('dark'); themeBtn.textContent = document.body.classList.contains('dark') ? '☀️' : '🌙'; };
@@ -286,34 +271,20 @@ document.addEventListener('DOMContentLoaded', () => {
   searchButton.onclick = searchPaper;
 
   savePng.onclick = async () => {
-    if(!leftNetwork && !rightNetwork) return alert('Önce grafik oluşturun!');
-    const leftCanvas = leftNetwork ? leftNetwork.canvas.frame.canvas : null;
-    const rightCanvas = rightNetwork ? rightNetwork.canvas.frame.canvas : null;
-    const w = (leftCanvas?leftCanvas.width:0) + (rightCanvas?rightCanvas.width:0);
-    const h = Math.max(leftCanvas?leftCanvas.height:0, rightCanvas?rightCanvas.height:0);
-    const tmp = document.createElement('canvas'); tmp.width = w; tmp.height = h;
-    const ctx = tmp.getContext('2d');
-    if(leftCanvas) ctx.drawImage(leftCanvas, 0, 0);
-    if(rightCanvas) ctx.drawImage(rightCanvas, leftCanvas?leftCanvas.width:0, 0);
-    const a = document.createElement('a'); a.href = tmp.toDataURL('image/png'); a.download = 'atif-citations-references.png'; a.click();
+    if(!leftNetwork) return alert('Önce grafik oluşturun!');
+    const leftCanvas = leftNetwork.canvas.frame.canvas;
+    const a = document.createElement('a'); a.href = leftCanvas.toDataURL('image/png'); a.download = 'atif-citations.png'; a.click();
   };
 
   savePdf.onclick = async () => {
-    if(!leftNetwork && !rightNetwork) return alert('Önce grafik oluşturun!');
-    const leftCanvas = leftNetwork ? leftNetwork.canvas.frame.canvas : null;
-    const rightCanvas = rightNetwork ? rightNetwork.canvas.frame.canvas : null;
-    const w = (leftCanvas?leftCanvas.width:0) + (rightCanvas?rightCanvas.width:0);
-    const h = Math.max(leftCanvas?leftCanvas.height:0, rightCanvas?rightCanvas.height:0);
-    const tmp = document.createElement('canvas'); tmp.width = w; tmp.height = h;
-    const ctx = tmp.getContext('2d');
-    if(leftCanvas) ctx.drawImage(leftCanvas, 0, 0);
-    if(rightCanvas) ctx.drawImage(rightCanvas, leftCanvas?leftCanvas.width:0, 0);
+    if(!leftNetwork) return alert('Önce grafik oluşturun!');
+    const leftCanvas = leftNetwork.canvas.frame.canvas;
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({ orientation: 'landscape' });
-    const img = tmp.toDataURL('image/png');
+    const img = leftCanvas.toDataURL('image/png');
     const pw = pdf.internal.pageSize.getWidth(), ph = pdf.internal.pageSize.getHeight();
     pdf.addImage(img, 'PNG', 10, 10, pw-20, ph-20);
-    pdf.save('atif-citations-references.pdf');
+    pdf.save('atif-citations.pdf');
   };
 
   async function searchPaper(){
@@ -337,8 +308,9 @@ document.addEventListener('DOMContentLoaded', () => {
       try{
         // --------------------------------------------------------------------
         // --- DÜZELTME 2: 'encodeURIComponent(doi)' kaldırıldı ('Not Found' hatası için) ---
+        // --- DÜZELTME 4: 'references' alanları istekten kaldırıldı ---
         // const url = `https://api.semanticscholar.org/graph/v1/paper/DOI:${encodeURIComponent(doi)}?fields=...`; // ESKİ VE BOZUK
-        const url = `https://api.semanticscholar.org/graph/v1/paper/DOI:${doi}?fields=title,year,authors,doi,paperId,url,citationCount,abstract,references.paperId,references.title,references.year,references.doi,citations.paperId,citations.title,citations.year,citations.doi`; // YENİ VE DOĞRU
+        const url = `https://api.semanticscholar.org/graph/v1/paper/DOI:${doi}?fields=title,year,authors,doi,paperId,url,citationCount,abstract,citations.paperId,citations.title,citations.year,citations.doi`; // YENİ VE DOĞRU
         // --------------------------------------------------------------------
         return await fetchJsonProxy(url);
       }catch(e){ console.warn('SS fail', e); return null; }
@@ -361,8 +333,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let finalData = null;
 
-    // If Semantic Scholar returned usable info (citations or references), prefer it
-    if(ssResult && ( (Array.isArray(ssResult.citations) && ssResult.citations.length>0) || (Array.isArray(ssResult.references) && ssResult.references.length>0) )){
+    // If Semantic Scholar returned usable info (citations), prefer it
+    if(ssResult && (Array.isArray(ssResult.citations) && ssResult.citations.length>0)){
       finalData = {
         source: 'ss',
         title: ssResult.title,
@@ -372,14 +344,7 @@ document.addEventListener('DOMContentLoaded', () => {
         url: ssResult.url || (ssResult.doi?`https://doi.org/${ssResult.doi}`:null),
         citationCount: ssResult.citationCount || 0,
         abstract: cleanAbstract(ssResult.abstract || null),
-        references: (ssResult.references || []).map(r => ({
-          title: r.title || r.reference?.title || 'Başlık',
-          paperId: r.paperId || (r.reference && r.reference.paperId) || r.reference?.doi || null,
-          doi: r.doi || r.reference?.doi || null,
-          year: r.year || r.reference?.year || null,
-          citationCount: r.citationCount || r.reference?.citationCount || 0,
-          url: null
-        })),
+        references: [], // Kaynakça kısmı kaldırıldı
         citations: (ssResult.citations || []).map(c => ({
           title: c.title || c.citingPaper?.title || 'Başlık',
           paperId: c.paperId || c.citingPaper?.paperId || c.citingPaper?.doi || null,
@@ -390,35 +355,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }))
       };
 
-      // Ensure references list is capped to OX_REF_LIMIT
-      if(finalData.references.length > OX_REF_LIMIT) {
-        finalData.references = finalData.references.slice(0, OX_REF_LIMIT);
-      }
-
-      // --------------------------------------------------------------------
-      // --- DÜZELTME 3: OpenAlex Fallback Mantığı ---
-      // Semantic Scholar yetersiz (<20) kaynakça verirse, OpenAlex'i tetikle.
-      // ESKİ HALİ: (!finalData.references || finalData.references.length === 0)
-      // --------------------------------------------------------------------
-      if((!finalData.references || finalData.references.length < 20) && oxResult && oxResult.id){
-        try{
-          const refIds = await fetchOpenAlexReferencedWorks(oxResult.id, OX_REF_LIMIT);
-          const fetched = [];
-          for(let i=0;i<refIds.length;i+=25){
-            const chunk = refIds.slice(i,i+25);
-            const p = await Promise.all(chunk.map(id => fetchOpenAlexWorkById(id).catch(()=>null)));
-            p.forEach(r => { if(r) fetched.push({ title: r.title, paperId: r.id, doi: r.doi||null, year: r.publication_year||null, citationCount: r.cited_by_count||0, url: r.primary_location?.source_url||null }); });
-            await new Promise(r=>setTimeout(r,120));
-          }
-          if(fetched.length>0){
-            finalData.references = fetched.slice(0, OX_REF_LIMIT);
-            status.textContent += ` (OpenAlex fallback ile ${finalData.references.length} kaynakça eklendi — limit ${OX_REF_LIMIT})`;
-          }
-        }catch(e){ console.warn('fallback refs failed', e); }
-      }
-
       // If SS abstract seems broken (very short or contains obvious scraped content), try OpenAlex abstract
-      if((!finalData.abstract || finalData.abstract.length < 30) && oxResult && oxResult.abstract_inverted_index){
+      if((!finalData.abstract || finalData.abstract.length < 30 || finalData.abstract.includes("Wales vs Iran")) && oxResult && oxResult.abstract_inverted_index){
         const oxAbs = openAlexAbstractToText(oxResult.abstract_inverted_index);
         const cleaned = cleanAbstract(oxAbs);
         if(cleaned && cleaned.length > (finalData.abstract?finalData.abstract.length:0)){
@@ -437,20 +375,10 @@ document.addEventListener('DOMContentLoaded', () => {
         url: oxResult.open_access?.oa_url || `https://openalex.org/${oxResult.id.split('/').pop()}`,
         citationCount: oxResult.cited_by_count || 0,
         abstract: cleanAbstract(oxResult.abstract || openAlexAbstractToText(oxResult.abstract_inverted_index) || null),
-        references: [],
+        references: [], // Kaynakça kısmı kaldırıldı
         citations: []
       };
 
-      try{
-        const refIds = await fetchOpenAlexReferencedWorks(oxResult.id, OX_REF_LIMIT);
-        for(let i=0;i<refIds.length;i+=25){
-          const chunk = refIds.slice(i,i+25);
-          const promises = chunk.map(id => fetchOpenAlexWorkById(id).catch(()=>null));
-          const results = await Promise.all(promises);
-          results.forEach(r => { if(r) base.references.push({ title: r.title, paperId: r.id, doi: r.doi||null, year: r.publication_year||null, citationCount: r.cited_by_count||0, url: r.primary_location?.source_url || null }); });
-          await new Promise(r=>setTimeout(r,120));
-        }
-      }catch(e){ console.warn('openalex referenced fetch fail', e); }
       // citations from OpenAlex (may be many)
       try{
         const citesResp = await fetch(`https://api.openalex.org/works?filter=cites:${encodeURIComponent(oxResult.id)}&per_page=200`);
@@ -471,10 +399,9 @@ document.addEventListener('DOMContentLoaded', () => {
         url: ssResult.url || (ssResult.doi?`https://doi.org/${ssResult.doi}`:null),
         citationCount: ssResult.citationCount || 0,
         abstract: cleanAbstract(ssResult.abstract || null),
-        references: (ssResult.references || []).map(r => ({ title: r.title || r.reference?.title || 'Başlık', paperId: r.paperId || r.reference?.paperId || null, doi: r.doi || r.reference?.doi || null, year: r.year || r.reference?.year || null, citationCount: r.citationCount || r.reference?.citationCount || 0, url: null })),
+        references: [], // Kaynakça kısmı kaldırıldı
         citations: (ssResult.citations || []).map(c => ({ title: c.title || c.citingPaper?.title || 'Başlık', paperId: c.paperId || c.citingPaper?.paperId || null, doi: c.doi || c.citingPaper?.doi || null, year: c.year || c.citingPaper?.year || null, citationCount: c.citationCount || c.citingPaper?.citationCount || 0, url: null }))
       };
-      if(finalData.references.length > OX_REF_LIMIT) finalData.references = finalData.references.slice(0, OX_REF_LIMIT);
     } else {
       spinner.style.display = 'none';
       status.textContent = '❌ Veri alınamadı: Kaynaklar yanıt vermedi.';
@@ -482,17 +409,12 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // ensure references capped to OX_REF_LIMIT (safety)
-    if(finalData.references && finalData.references.length > OX_REF_LIMIT){
-      finalData.references = finalData.references.slice(0, OX_REF_LIMIT);
-    }
-
     // cache & render
     CACHE.set(doi, finalData);
     currentData = finalData;
     renderAll(finalData);
     spinner.style.display = 'none';
-    status.textContent = `✅ "${finalData.title || doi}" yüklendi. (refs: ${finalData.references.length}, cits: ${finalData.citations.length})`;
+    status.textContent = `✅ "${finalData.title || doi}" yüklendi. (Atıflar: ${finalData.citations.length})`;
   } // end searchPaper
 
   // render everything
@@ -510,10 +432,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const yearLimit = yearFilter.value === 'all' ? 0 : parseInt(yearFilter.value);
     const citList = (data.citations||[]).filter(x => !(x.year && yearLimit && x.year < yearLimit));
-    const refList = (data.references||[]).filter(x => !(x.year && yearLimit && x.year < yearLimit));
+    // const refList = (data.references||[]).filter(x => !(x.year && yearLimit && x.year < yearLimit)); // KALDIRILDI
 
     drawNetworkLeft(citList, data);
-    drawNetworkRight(refList, data);
+    // drawNetworkRight(refList, data); // KALDIRILDI
   }
 
   function chooseLabelledNodes(list){
@@ -587,68 +509,8 @@ document.addEventListener('DOMContentLoaded', () => {
       hideInfo();
     });
   }
-
-  function drawNetworkRight(references, data){
-    const nodes = [], edges = [];
-    const mainId = data.paperId || data.doi || 'main';
-    const centralShort = (data.title || '').split('\n')[0].slice(0,40) + (data.title && data.title.length>40? '…' : '');
-    nodes.push({ id: mainId, label: centralShort, title: `${data.title||''}\n(${data.year||'?'})`, color:'#f0a30a', size: sizeFromCitations(data.citationCount||0), url: data.url, citationCount: data.citationCount||0 });
-
-    const labelledSet = chooseLabelledNodes(references);
-    let maxCitation = 0;
-    references.forEach(it => { const c = Number(it.citationCount||0); if(c>maxCitation) maxCitation = c; });
-
-    references.forEach(item=>{
-      const id = item.paperId || item.doi || (item.title + '::' + Math.random().toString(36).slice(2,6));
-      const showLabel = labelledSet.has(item.paperId || item.doi || id);
-      nodes.push({ id, label: showLabel ? (item.title||'').substring(0,40) : '', title:`${item.title||''}\nYıl:${item.year||'?'}`, color:'#4285F4', size: sizeFromCitations(item.citationCount||0), url: item.doi?`https://doi.org/${item.doi}`: item.url || null, citationCount: item.citationCount||0 });
-      edges.push({ from: mainId, to: id, color:{ color:'#4285F4' }, arrows: { to: { enabled: true, type: 'arrow' } } });
-    });
-
-    const uniq = {}; nodes.forEach(n => uniq[n.id] = n);
-    const finalNodes = Object.values(uniq);
-    const gdata = { nodes: new vis.DataSet(finalNodes), edges: new vis.DataSet(edges) };
-
-    if(rightNetwork) rightNetwork.destroy();
-    rightNetwork = new vis.Network(rightEl, gdata, {
-      nodes:{ shape:'dot', font:{ size:10, color: 'var(--text)' } },
-      edges:{ width:2.6, smooth:{ type:'dynamic' }, arrows:{ to:{ enabled:true, scaleFactor:1.2, type:'arrow' } } },
-      physics:{ stabilization:false, barnesHut:{ gravitationalConstant:-2200, springLength:120, springConstant:0.02 } },
-      interaction:{ hover:true, hoverConnectedEdges: true, navigationButtons:true, zoomView:true }
-    });
-
-    rightGraph = gdata;
-    rightNetwork.body.data._maxCitation = maxCitation;
-
-    rightNetwork.on('stabilizationIterationsDone', ()=> { try{ rightNetwork.physics.stop(); }catch(e){} });
-    rightNetwork.on('click', params => {
-      if(params.nodes.length){
-        const node = rightGraph.nodes.get(params.nodes[0]);
-        showInfo(node);
-      } else hideInfo();
-    });
-    rightNetwork.on('doubleClick', params => { if(params.nodes.length){ const node = rightGraph.nodes.get(params.nodes[0]); if(node && node.url) window.open(node.url,'_blank'); } });
-
-    rightNetwork.on('hoverNode', params => {
-      const n = rightGraph.nodes.get(params.node);
-      if(n && !n.label) rightGraph.nodes.update({ id: n.id, label: (n.title||'').split('\n')[0].slice(0,40) });
-      if(n && Number(n.citationCount||0) === rightNetwork.body.data._maxCitation && rightNetwork.body.data._maxCitation>0){
-        infoBox.style.display = 'block';
-        infoBox.style.left = (rightEl.getBoundingClientRect().left + 12) + 'px';
-        infoBox.style.top = (rightEl.getBoundingClientRect().top + 12) + 'px';
-        infoBox.innerHTML = `<strong>Bu makale en fazla atıf alan kaynaktır.</strong><br>${(n.title||'').split('\n')[0]}<br>Atıf sayısı: ${n.citationCount || 0}`;
-      }
-    });
-
-    rightNetwork.on('blurNode', params => {
-      const n = rightGraph.nodes.get(params.node);
-      if(n){
-        const shouldHave = labelledSet.has(n.id);
-        if(!shouldHave) leftGraph.nodes.update({ id: n.id, label: '' });
-      }
-      hideInfo();
-    });
-  }
+  
+  // drawNetworkRight FONKSİYONU TAMAMEN KALDIRILDI
 
   function showInfo(node){
     if(!node) return;
