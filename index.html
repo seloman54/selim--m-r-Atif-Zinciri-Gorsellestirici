@@ -24,7 +24,7 @@ h1{ margin:18px 0; color:var(--accent); text-shadow:1px 1px 3px rgba(0,0,0,0.15)
 #controls{ margin:20px; display:flex; flex-wrap:wrap; gap:10px; justify-content:center; align-items:center; }
 input,select,button{ padding:10px 14px; font-size:14px; border-radius:8px; border:1px solid #ccc; }
 button{ background:var(--accent); color:#fff; border:none; cursor:pointer; box-shadow:0 3px 6px var(--shadow); }
-#topSummary { max-width:1000px; margin:10px auto; background:var(--card); padding:12px 16px; border-radius:10px; box-shadow:0 6px 18px rgba(0,0,0,0.06); text-align:left; font-size:0.95rem; }
+#topSummary { max-width:1100px; margin:10px auto; background:var(--card); padding:12px 16px; border-radius:10px; box-shadow:0 6px 18px rgba(0,0,0,0.06); text-align:left; font-size:0.95rem; }
 #networks { display:flex; gap:12px; justify-content:center; align-items:flex-start; width:95%; margin:10px auto; }
 .networkCard { flex:1; min-width:300px; background:var(--card); border-radius:12px; padding:10px; box-shadow:0 10px 24px rgba(0,0,0,0.04); position:relative; overflow:hidden; }
 .networkHeader { font-weight:600; color:var(--accent); margin-bottom:8px; text-align:left; }
@@ -56,13 +56,33 @@ body.dark .zoomHint { background: rgba(20,20,20,0.65); color: #eee; }
 .leftHeader { color: #34A853 !important; }
 
 /* info box */
-.infoBox { position:absolute; left:12px; top:12px; z-index:60; display:none; max-width:360px; background:rgba(255,255,255,0.96); padding:10px 12px; border-radius:8px; box-shadow:0 8px 20px rgba(0,0,0,0.08); text-align:left; font-size:13px; }
+.infoBox { position:absolute; left:12px; top:12px; z-index:60; display:none; max-width:420px; background:rgba(255,255,255,0.96); padding:10px 12px; border-radius:8px; box-shadow:0 8px 20px rgba(0,0,0,0.08); text-align:left; font-size:13px; }
 body.dark .infoBox{ background:rgba(20,20,20,0.95); color:#eee; }
+
+/* small centered title text above center node (subtle) */
+.centerTitle {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 142px; /* roughly above the center node region */
+  z-index: 30;
+  background: rgba(255,255,255,0.85);
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+  max-width: 640px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+body.dark .centerTitle{ background: rgba(20,20,20,0.8); color: #eee; }
 
 @media (max-width:980px){
   #networks { flex-direction:column; }
   #leftNet, #rightNet { height:420px; }
   .zoomHint { display:none; } /* hide hint on small screens */
+  .centerTitle{ top:110px; font-size:12px; max-width:320px; }
 }
 </style>
 </head>
@@ -89,6 +109,8 @@ body.dark .infoBox{ background:rgba(20,20,20,0.95); color:#eee; }
 
   <div id="topSummary"> <!-- summary will be injected here --> Kısa özet: <i>Henüz makale yüklenmedi.</i></div>
 
+  <div class="centerTitle" id="centerTitle" style="display:none;"></div>
+
   <div id="networks">
     <div class="networkCard">
       <div class="networkHeader leftHeader">Atıflar (Ana makaleye atıf yapan makaleler) — Yeşil</div>
@@ -106,8 +128,8 @@ body.dark .infoBox{ background:rgba(20,20,20,0.95); color:#eee; }
 
   <div id="notes">
     🔹 Sol: ana makaleye atıf yapan çalışmalar (citations).<br>
-    🔹 Sağ: makalenin kaynakçası (references). ⚠️ En fazla 60 kaynakça gösterilir (performans ve API sınırlamaları nedeniyle).<br>
-    🔹 Ortadaki özet, makalenin kısa açıklamasını gösterir (Semantic Scholar öncelikli; yoksa OpenAlex'ten elde edilir).<br>
+    🔹 Sağ: makalenin kaynakçası (references). ⚠️ **En fazla 50 kaynakça gösterilir.**<br>
+    🔹 Özet: önce Semantic Scholar tercih edilir; sağlamazsa OpenAlex kullanılır. Özetler otomatik temizlenir.<br>
     🔹 Düğümlere tıklayarak makale sayfasına gidebilirsiniz (çift tık).<br>
     🔹 Topların büyüklük farkı, makalelerin aldığı atıf sayısına göredir (daha büyük top = daha çok atıf).<br>
   </div>
@@ -115,30 +137,28 @@ body.dark .infoBox{ background:rgba(20,20,20,0.95); color:#eee; }
   <footer>© 2025 <b>Selim ÖMÜR</b> — <a href="mailto:omurselim@gmail.com">omurselim@gmail.com</a> — İzinsiz kullanılamaz.</footer>
 
 <script>
-/* 
-  Düzeltilmiş sürüm:
-  - Semantic Scholar öncelikli.
-  - Eğer references eksikse OpenAlex fallback kullanılır (maks 60 referans).
-  - Abstract temizlenir.
-  - Oklar görünürlüğü artırıldı.
-  - Görünüm / butonlar / düzen bozulmadı.
+/* Yeni, tam sürüm:
+   - Kaynakça limiti = 50
+   - Semantic Scholar öncelikli; references yoksa OpenAlex fallback (referenced_works)
+   - Abstract temizleme ve OpenAlex fallback for abstract
+   - Merkezi düğüm küçük başlık (centerTitle) gösterme
+   - Oklar daha görünür
 */
 
 const PROXY = 'https://api.allorigins.win/raw?url='; // proxy for SS
 const SS_TIMEOUT = 3500; // ms
-const OX_REF_LIMIT = 60; // *** değiştirilen limit burada (60)
+const OX_REF_LIMIT = 50; // <--- Kullanıcının istediği limit: 50
 const CACHE = new Map();
 
-// basit timeout helper
 function timeoutPromise(ms) { return new Promise((_, rej) => setTimeout(()=>rej(new Error('timeout')), ms)); }
 
-// boyutlandırma: atıf sayısına göre hesap
+// node size from citation count
 function sizeFromCitations(count){
   const c = Math.max(0, Number(count)||0);
   return Math.round(6 + Math.sqrt(c) * 4);
 }
 
-// safe fetch via allorigins proxy (Semantic Scholar için)
+// fetch via allorigins proxy (for Semantic Scholar)
 async function fetchJsonProxy(url){
   const attempt = PROXY + encodeURIComponent(url);
   const controller = new AbortController();
@@ -156,7 +176,7 @@ async function fetchJsonProxy(url){
   }
 }
 
-// OpenAlex work by DOI
+// OpenAlex by DOI
 async function fetchOpenAlex(doi){
   const url = `https://api.openalex.org/works/https://doi.org/${encodeURIComponent(doi)}`;
   const res = await fetch(url);
@@ -164,10 +184,9 @@ async function fetchOpenAlex(doi){
   return await res.json();
 }
 
-// get referenced_works ids for OpenAlex work (limit OX_REF_LIMIT)
+// fetch referenced_works ids for OpenAlex work (limit OX_REF_LIMIT)
 async function fetchOpenAlexReferencedWorks(openalexWorkId, per_page = OX_REF_LIMIT){
   try{
-    // openalexWorkId might be full id or URL; take last segment
     const seg = openalexWorkId.split('/').pop();
     const url = `https://api.openalex.org/works/${encodeURIComponent(seg)}/referenced_works?per_page=${per_page}`;
     const res = await fetch(url);
@@ -180,7 +199,6 @@ async function fetchOpenAlexReferencedWorks(openalexWorkId, per_page = OX_REF_LI
   }
 }
 
-// fetch OpenAlex work metadata by id
 async function fetchOpenAlexWorkById(openalexWorkId){
   try{
     const seg = openalexWorkId.split('/').pop();
@@ -191,7 +209,7 @@ async function fetchOpenAlexWorkById(openalexWorkId){
   }catch(e){ return null; }
 }
 
-// convert OpenAlex abstract_inverted_index to text
+// convert OpenAlex inverted abstract index to string
 function openAlexAbstractToText(inv){
   try{
     if(!inv) return null;
@@ -203,19 +221,40 @@ function openAlexAbstractToText(inv){
   }catch(e){ return null; }
 }
 
-// sanitize abstract text (strip control chars, trim, collapse spaces)
+// strong cleaning for abstracts: remove urls, weird tokens, multiple spaces, odd emojis, long numeric garbage
 function cleanAbstract(s){
   if(!s) return null;
   try{
-    // remove weird unicode control characters, excessive newlines
-    let t = s.replace(/\s+/g,' ');
-    // remove stray escape sequences
-    t = t.replace(/\\n|\\t/g,' ');
-    t = t.replace(/[^\S\r\n]+/g,' ');
-    t = t.trim();
-    // truncate if too long for UI (but keep available in title tooltip)
+    let t = String(s);
+
+    // If it's large HTML or weird text, strip tags
+    t = t.replace(/<\/?[^>]+(>|$)/g, ' ');
+
+    // remove URLs
+    t = t.replace(/https?:\/\/\S+/gi, ' ');
+    // remove email-like
+    t = t.replace(/\S+@\S+\.\S+/g, ' ');
+    // remove escape sequences like \n \t and duplicated backslashes
+    t = t.replace(/\\n|\\r|\\t|\\\\/g, ' ');
+    // remove long runs of punctuation / emojis (keep basic punctuation)
+    t = t.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]+/gu, ' ');
+    // remove control characters
+    t = t.replace(/[\x00-\x1F\x7F]/g, ' ');
+    // collapse whitespace
+    t = t.replace(/\s+/g, ' ').trim();
+    // remove repeated short tokens like "…", "—" excessive
+    t = t.replace(/…+/g, '…');
+    // if the text contains nonsense patterns like "Wales vs Iran" with many time tokens from scraped web, try to trim to first 600 chars
+    if(t.length > 1200) t = t.slice(0, 1200) + '…';
+    // final safety: if still contains many non-letter characters, remove sequences longer than 30 of non-space
+    t = t.replace(/\S{200,}/g, ' ');
+    t = t.replace(/\s+/g, ' ').trim();
+
+    if(t.length === 0) return null;
     return t;
-  }catch(e){ return s; }
+  }catch(e){
+    return s;
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -232,6 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const themeBtn = document.getElementById('themeBtn');
   const yearFilter = document.getElementById('yearFilter');
   const infoBox = document.getElementById('infoBox');
+  const centerTitle = document.getElementById('centerTitle');
 
   let leftNetwork = null, rightNetwork = null;
   let leftGraph = null, rightGraph = null;
@@ -287,8 +327,10 @@ document.addEventListener('DOMContentLoaded', () => {
     spinner.style.display = 'inline-block';
     status.textContent = '🔍 Veriler çekiliyor (Semantic Scholar öncelikli, OpenAlex fallback)...';
     topSummary.innerHTML = 'Kısa özet: <i>Yükleniyor...</i>';
+    centerTitle.style.display = 'none';
+    centerTitle.textContent = '';
 
-    // semantic scholar (via proxy) + openalex in parallel
+    // parallel fetch attempts
     const ssPromise = (async ()=> {
       try{
         const url = `https://api.semanticscholar.org/graph/v1/paper/DOI:${encodeURIComponent(doi)}?fields=title,year,authors,doi,paperId,url,citationCount,abstract,references.paperId,references.title,references.year,references.doi,citations.paperId,citations.title,citations.year,citations.doi`;
@@ -313,7 +355,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let finalData = null;
 
-    // prefer SS if it provides citations or references
+    // If Semantic Scholar returned usable info (citations or references), prefer it
     if(ssResult && ( (Array.isArray(ssResult.citations) && ssResult.citations.length>0) || (Array.isArray(ssResult.references) && ssResult.references.length>0) )){
       finalData = {
         source: 'ss',
@@ -342,8 +384,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }))
       };
 
-      // if SS references empty, try OpenAlex fallback (limit OX_REF_LIMIT)
-      if(finalData.references.length === 0 && oxResult && oxResult.id){
+      // Ensure references list is capped to OX_REF_LIMIT
+      if(finalData.references.length > OX_REF_LIMIT) {
+        finalData.references = finalData.references.slice(0, OX_REF_LIMIT);
+      }
+
+      // If SS references empty or insufficient, fallback to OpenAlex referenced_works (limit OX_REF_LIMIT)
+      if((!finalData.references || finalData.references.length === 0) && oxResult && oxResult.id){
         try{
           const refIds = await fetchOpenAlexReferencedWorks(oxResult.id, OX_REF_LIMIT);
           const fetched = [];
@@ -353,13 +400,24 @@ document.addEventListener('DOMContentLoaded', () => {
             p.forEach(r => { if(r) fetched.push({ title: r.title, paperId: r.id, doi: r.doi||null, year: r.publication_year||null, citationCount: r.cited_by_count||0, url: r.primary_location?.source_url||null }); });
             await new Promise(r=>setTimeout(r,120));
           }
-          if(fetched.length>0) finalData.references = fetched;
-          if(fetched.length>0) status.textContent += ` (OpenAlex fallback ile ${fetched.length} kaynakça eklendi — limit ${OX_REF_LIMIT})`;
+          if(fetched.length>0){
+            finalData.references = fetched.slice(0, OX_REF_LIMIT);
+            status.textContent += ` (OpenAlex fallback ile ${finalData.references.length} kaynakça eklendi — limit ${OX_REF_LIMIT})`;
+          }
         }catch(e){ console.warn('fallback refs failed', e); }
       }
 
+      // If SS abstract seems broken (very short or contains obvious scraped content), try OpenAlex abstract
+      if((!finalData.abstract || finalData.abstract.length < 30) && oxResult && oxResult.abstract_inverted_index){
+        const oxAbs = openAlexAbstractToText(oxResult.abstract_inverted_index);
+        const cleaned = cleanAbstract(oxAbs);
+        if(cleaned && cleaned.length > (finalData.abstract?finalData.abstract.length:0)){
+          finalData.abstract = cleaned;
+        }
+      }
+
     } else if(oxResult && oxResult.id){
-      // build from OpenAlex
+      // Build entirely from OpenAlex when SS lacks
       const base = {
         source: 'ox',
         title: oxResult.title,
@@ -372,6 +430,7 @@ document.addEventListener('DOMContentLoaded', () => {
         references: [],
         citations: []
       };
+
       try{
         const refIds = await fetchOpenAlexReferencedWorks(oxResult.id, OX_REF_LIMIT);
         for(let i=0;i<refIds.length;i+=25){
@@ -382,6 +441,7 @@ document.addEventListener('DOMContentLoaded', () => {
           await new Promise(r=>setTimeout(r,120));
         }
       }catch(e){ console.warn('openalex referenced fetch fail', e); }
+      // citations from OpenAlex (may be many)
       try{
         const citesResp = await fetch(`https://api.openalex.org/works?filter=cites:${encodeURIComponent(oxResult.id)}&per_page=200`);
         if(citesResp.ok){
@@ -391,7 +451,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }catch(e){ console.warn('openalex cites fetch fail', e); }
       finalData = base;
     } else if(ssResult){
-      // minimal SS fallback (if SS returned something but no references/citations arrays)
+      // minimal SS fallback
       finalData = {
         source: 'ss_min',
         title: ssResult.title,
@@ -404,6 +464,7 @@ document.addEventListener('DOMContentLoaded', () => {
         references: (ssResult.references || []).map(r => ({ title: r.title || r.reference?.title || 'Başlık', paperId: r.paperId || r.reference?.paperId || null, doi: r.doi || r.reference?.doi || null, year: r.year || r.reference?.year || null, citationCount: r.citationCount || r.reference?.citationCount || 0, url: null })),
         citations: (ssResult.citations || []).map(c => ({ title: c.title || c.citingPaper?.title || 'Başlık', paperId: c.paperId || c.citingPaper?.paperId || null, doi: c.doi || c.citingPaper?.doi || null, year: c.year || c.citingPaper?.year || null, citationCount: c.citationCount || c.citingPaper?.citationCount || 0, url: null }))
       };
+      if(finalData.references.length > OX_REF_LIMIT) finalData.references = finalData.references.slice(0, OX_REF_LIMIT);
     } else {
       spinner.style.display = 'none';
       status.textContent = '❌ Veri alınamadı: Kaynaklar yanıt vermedi.';
@@ -411,7 +472,12 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // cache and render
+    // ensure references capped to OX_REF_LIMIT (safety)
+    if(finalData.references && finalData.references.length > OX_REF_LIMIT){
+      finalData.references = finalData.references.slice(0, OX_REF_LIMIT);
+    }
+
+    // cache & render
     CACHE.set(doi, finalData);
     currentData = finalData;
     renderAll(finalData);
@@ -419,11 +485,18 @@ document.addEventListener('DOMContentLoaded', () => {
     status.textContent = `✅ "${finalData.title || doi}" yüklendi. (refs: ${finalData.references.length}, cits: ${finalData.citations.length})`;
   } // end searchPaper
 
-  // render summary + two graphs
+  // render everything
   function renderAll(data){
-    const abs = data.abstract ? (data.abstract.length>600 ? data.abstract.slice(0,600)+'…' : data.abstract) : '<i>Özet bulunamadı.</i>';
-    // show small title above the central node in summary, but keep layout unchanged
+    const abs = data.abstract ? (data.abstract.length>700 ? data.abstract.slice(0,700)+'…' : data.abstract) : '<i>Özet bulunamadı.</i>';
     topSummary.innerHTML = `<strong>${data.title || ''}</strong> (${data.year || '?'})<br><small>${abs}</small>`;
+
+    // show small centered title above main area
+    if(data.title){
+      centerTitle.style.display = 'block';
+      centerTitle.textContent = (data.title.length>120? data.title.slice(0,120)+'…' : data.title);
+    } else {
+      centerTitle.style.display = 'none';
+    }
 
     const yearLimit = yearFilter.value === 'all' ? 0 : parseInt(yearFilter.value);
     const citList = (data.citations||[]).filter(x => !(x.year && yearLimit && x.year < yearLimit));
@@ -433,24 +506,23 @@ document.addEventListener('DOMContentLoaded', () => {
     drawNetworkRight(refList, data);
   }
 
-  // utility: choose which nodes get permanent labels to reduce overlap
   function chooseLabelledNodes(list){
     const n = list.length;
     if(n === 0) return new Set();
-    const k = Math.max(20, Math.round(n * 0.12)); // top 12% or at least 20
+    const k = Math.max(10, Math.round(n * 0.12)); // top 12% or at least 10 (less aggressive)
     const sorted = [...list].sort((a,b)=> (Number(b.citationCount||0) - Number(a.citationCount||0)));
     const top = sorted.slice(0,k).map(x => x.paperId || x.id || x.doi || x.title);
     return new Set(top);
   }
 
-  // LEFT: citations network
   function drawNetworkLeft(citations, data){
     const nodes = [], edges = [];
     const mainId = data.paperId || data.doi || 'main';
-    nodes.push({ id: mainId, label:`[ANA]\n${(data.title||'').substring(0,40)}...`, title: `${data.title||''}\n(${data.year||'?'})`, color:'#f0a30a', size: sizeFromCitations(data.citationCount||0), url: data.url, citationCount: data.citationCount||0 });
+    // central node label - single-line short title to avoid overlap
+    const centralShort = (data.title || '').split('\n')[0].slice(0,40) + (data.title && data.title.length>40? '…' : '');
+    nodes.push({ id: mainId, label: centralShort, title: `${data.title||''}\n(${data.year||'?'})`, color:'#f0a30a', size: sizeFromCitations(data.citationCount||0), url: data.url, citationCount: data.citationCount||0 });
 
     const labelledSet = chooseLabelledNodes(citations);
-
     let maxCitation = 0;
     citations.forEach(it => { const c = Number(it.citationCount||0); if(c>maxCitation) maxCitation = c; });
 
@@ -468,9 +540,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if(leftNetwork) leftNetwork.destroy();
     leftNetwork = new vis.Network(leftEl, gdata, {
       nodes:{ shape:'dot', font:{ size:10, color: 'var(--text)' } },
-      edges:{ width:2.4, smooth:{ type:'dynamic' }, arrows:{ to:{ enabled:true, scaleFactor:1.0, type:'arrow' } } },
+      edges:{ width:2.6, smooth:{ type:'dynamic' }, arrows:{ to:{ enabled:true, scaleFactor:1.2, type:'arrow' } } },
       physics:{ stabilization:false, barnesHut:{ gravitationalConstant:-2400, springLength:120, springConstant:0.02 } },
-      interaction:{ hover:true, hoverConnectedEdges: true }
+      interaction:{ hover:true, hoverConnectedEdges: true, navigationButtons:true, zoomView:true }
     });
 
     leftGraph = gdata;
@@ -506,14 +578,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // RIGHT: references network
   function drawNetworkRight(references, data){
     const nodes = [], edges = [];
     const mainId = data.paperId || data.doi || 'main';
-    nodes.push({ id: mainId, label:`[ANA]\n${(data.title||'').substring(0,40)}...`, title: `${data.title||''}\n(${data.year||'?'})`, color:'#f0a30a', size: sizeFromCitations(data.citationCount||0), url: data.url, citationCount: data.citationCount||0 });
+    const centralShort = (data.title || '').split('\n')[0].slice(0,40) + (data.title && data.title.length>40? '…' : '');
+    nodes.push({ id: mainId, label: centralShort, title: `${data.title||''}\n(${data.year||'?'})`, color:'#f0a30a', size: sizeFromCitations(data.citationCount||0), url: data.url, citationCount: data.citationCount||0 });
 
     const labelledSet = chooseLabelledNodes(references);
-
     let maxCitation = 0;
     references.forEach(it => { const c = Number(it.citationCount||0); if(c>maxCitation) maxCitation = c; });
 
@@ -531,9 +602,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if(rightNetwork) rightNetwork.destroy();
     rightNetwork = new vis.Network(rightEl, gdata, {
       nodes:{ shape:'dot', font:{ size:10, color: 'var(--text)' } },
-      edges:{ width:2.4, smooth:{ type:'dynamic' }, arrows:{ to:{ enabled:true, scaleFactor:1.0, type:'arrow' } } },
+      edges:{ width:2.6, smooth:{ type:'dynamic' }, arrows:{ to:{ enabled:true, scaleFactor:1.2, type:'arrow' } } },
       physics:{ stabilization:false, barnesHut:{ gravitationalConstant:-2200, springLength:120, springConstant:0.02 } },
-      interaction:{ hover:true, hoverConnectedEdges: true }
+      interaction:{ hover:true, hoverConnectedEdges: true, navigationButtons:true, zoomView:true }
     });
 
     rightGraph = gdata;
@@ -578,10 +649,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   function hideInfo(){ infoBox.style.display = 'none'; }
 
-  // re-render on year filter change
   yearFilter.addEventListener('change', ()=>{ if(currentData) renderAll(currentData); });
 
-  // expose debug quick trigger
+  // quick debug trigger
   window.searchPaper = () => { document.getElementById('searchButton').click(); };
 
 }); // DOMContentLoaded end
