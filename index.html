@@ -143,7 +143,12 @@ body.dark .centerTitle{ background: rgba(20,20,20,0.8); color: #eee; }
    - Oklar daha görünür
 */
 
-const PROXY = 'https://api.allorigins.win/raw?url='; // proxy for SS
+// --------------------------------------------------------------------
+// --- DÜZELTME 1: Proxy Değişikliği ---
+// 'allorigins.win' yerine daha stabil olan 'api.codetabs.com' proxy'si kullanıldı.
+// ESKİ: const PROXY = 'https://api.allorigins.win/raw?url=';
+// --------------------------------------------------------------------
+const PROXY = 'https://api.codetabs.com/v1/proxy?quest='; // proxy for SS
 const SS_TIMEOUT = 3500; // ms
 const OX_REF_LIMIT = 50; // <--- Kullanıcının istediği limit: 50
 const CACHE = new Map();
@@ -156,7 +161,7 @@ function sizeFromCitations(count){
   return Math.round(6 + Math.sqrt(c) * 4);
 }
 
-// fetch via allorigins proxy (for Semantic Scholar)
+// fetch via proxy (for Semantic Scholar)
 async function fetchJsonProxy(url){
   const attempt = PROXY + encodeURIComponent(url);
   const controller = new AbortController();
@@ -167,6 +172,8 @@ async function fetchJsonProxy(url){
     if(!res.ok) throw new Error('HTTP ' + res.status);
     const txt = await res.text();
     if(!txt) throw new Error('Empty response from proxy');
+    // api.codetabs.com bazen 404'ü düzgün vermiyor, 'Not found' metni veriyor
+    if(txt.includes('Not Found') || txt.includes('not found')) throw new Error('Proxy API 404');
     return JSON.parse(txt);
   } catch(e){
     clearTimeout(id);
@@ -388,10 +395,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       // --------------------------------------------------------------------
-      // --- İŞTE DÜZELTME BURADA ---
-      // If SS references empty or INSUFFICIENT (e.g. sample < 20), fallback to OpenAlex referenced_works
+      // --- DÜZELTME 2: OpenAlex Fallback Mantığı ---
+      // Semantic Scholar yetersiz (<20) kaynakça verirse, OpenAlex'i tetikle.
       // ESKİ HALİ: (!finalData.references || finalData.references.length === 0)
-      // YENİ HALİ: (!finalData.references || finalData.references.length < 20)
       // --------------------------------------------------------------------
       if((!finalData.references || finalData.references.length < 20) && oxResult && oxResult.id){
         try{
