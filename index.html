@@ -32,7 +32,7 @@ button{ background:var(--accent); color:#fff; border:none; cursor:pointer; box-s
 #status{ margin:10px; font-weight:500; min-height:20px; }
 #spinner{ display:none; border:4px solid #f3f3f3; border-top:4px solid var(--accent); border-radius:50%; width:30px; height:30px; margin:6px auto; animation:spin 1s linear infinite; }
 @keyframes spin{ to{ transform:rotate(360deg); } }
-#notes{ background: rgba(43,78,255,0.07); padding:12px; border-radius:10px; max-width:900px; margin:10px auto; font-size:0.9em; text-align:left; color: #0b2166; }
+#notes{ background: rgba(43,78,255,0.07); padding:12px; border-radius:10px; max-width:900px; margin:10px auto; font-size:0.9em; text-align:left; }
 footer{ margin:25px 0; font-size:0.8em; color:gray; }
 footer a{ color:var(--accent); text-decoration:none; }
 
@@ -52,11 +52,7 @@ footer a{ color:var(--accent); text-decoration:none; }
 }
 body.dark .zoomHint { background: rgba(20,20,20,0.65); color: #eee; }
 
-/* left header color override (green) */
-.leftHeader { color: #34A853 !important; }
-
-/* info box */
-.infoBox { position:absolute; left:12px; top:12px; z-index:60; display:none; max-width:360px; background:rgba(255,255,255,0.96); padding:10px 12px; border-radius:8px; box-shadow:0 8px 20px rgba(0,0,0,0.08); text-align:left; font-size:13px; }
+.infoBox { position:absolute; left:12px; top:12px; z-index:20; display:none; max-width:320px; background:rgba(255,255,255,0.96); padding:10px 12px; border-radius:8px; box-shadow:0 8px 20px rgba(0,0,0,0.08); text-align:left; font-size:13px; }
 body.dark .infoBox{ background:rgba(20,20,20,0.95); color:#eee; }
 
 @media (max-width:980px){
@@ -91,7 +87,7 @@ body.dark .infoBox{ background:rgba(20,20,20,0.95); color:#eee; }
 
   <div id="networks">
     <div class="networkCard">
-      <div class="networkHeader leftHeader">Atıflar (Ana makaleye atıf yapan makaleler) — <span style="color:#34A853">Yeşil</span></div>
+      <div class="networkHeader">Atıflar (Sana atıf yapan makaleler) — Yeşil</div>
       <div class="zoomHint">🖱️ Fare tekerleğiyle yakınlaştırın · Sürükleyin</div>
       <div id="leftNet"></div>
     </div>
@@ -105,56 +101,33 @@ body.dark .infoBox{ background:rgba(20,20,20,0.95); color:#eee; }
   <div class="infoBox" id="infoBox"></div>
 
   <div id="notes">
-    🔹 Sol: ana makaleye atıf yapan çalışmalar (citations).<br>
-    🔹 Sağ: makalenin kaynakçası (references). Bu panelde <strong>en fazla 50</strong> kaynak gösterilir (Semantic Scholar → OpenAlex fallback; Semantic Scholar önceliklidir, yanıt vermezse JSON yedeği kullanılır).<br>
-    🔹 Ortadaki özet, makalenin kısa açıklamasını gösterir (Semantic Scholar öncelikli; yoksa OpenAlex'ten veya JSON yedekten elde edilir).<br>
+    🔹 Sol grafik: o makaleye atıf yapan çalışmalar (citations).<br>
+    🔹 Sağ grafik: makalenin kaynakçası (references). Bu senin için özellikle önemli — ayrı panelde gösterildi.<br>
+    🔹 Ortadaki özet, makalenin kısa açıklamasını gösterir (Semantic Scholar öncelikli; yoksa OpenAlex'ten elde edilir).<br>
     🔹 Düğümlere tıklayarak makale sayfasına gidebilirsiniz (çift tık).<br>
-    🔹 Düğümler <strong>atıf sayısına göre</strong> büyür — Topların büyüklük farkı, makalelerin aldığı atıf sayısına göredir.<br>
+    🔹 Düğümler atıf sayısına göre boyutlanır: <code>size = 5 + Math.sqrt(citationCount) * 4</code>.<br>
   </div>
 
   <footer>© 2025 <b>Selim ÖMÜR</b> — <a href="mailto:omurselim@gmail.com">omurselim@gmail.com</a> — İzinsiz kullanılamaz.</footer>
 
 <script>
 /* 
-  Değişiklikler:
-  - Kaynakça limiti 50 (OpenAlex referenced_works per_page=50).
-  - Semantic Scholar öncelikli, başarısız ise exampleJson fallback.
-  - En büyük düğüm hover mesajı: "Bu makale en fazla atıf alan kaynaktır."
-  - Ok ve kenar görünürlüğü arttırıldı.
+  Güncellenmiş: OpenAlex referenced_works -> doğru API endpoint kullanımı,
+  zoomHint eklendi. Tasarım ve çekirdek mantık korunmuştur.
 */
 
 const PROXY = 'https://api.allorigins.win/raw?url='; // proxy for SS
 const SS_TIMEOUT = 3500; // ms
 const CACHE = new Map();
 
-// --- example JSON fallback (basit örnek; istersen gerçek yedeği buraya koyarım) ---
-const exampleJsonData = {
-  source: 'json_example',
-  title: 'Örnek Makale Başlığı — JSON Yedek',
-  year: 2000,
-  doi: '10.0000/example',
-  paperId: 'example:1',
-  url: null,
-  citationCount: 12,
-  abstract: 'Bu bir örnek yedek veridir. Semantic Scholar erişimi başarısız olduğunda kullanılır.',
-  references: [
-    { title: 'Örnek Ref 1', paperId: 'ex:ref1', doi: null, year:1999, citationCount: 5, url: null },
-    { title: 'Örnek Ref 2', paperId: 'ex:ref2', doi: null, year:1998, citationCount: 2, url: null }
-  ],
-  citations: [
-    { title: 'Örnek Cit 1', paperId: 'ex:cit1', doi: null, year:2001, citationCount: 3, url: null }
-  ]
-};
-// ------------------------------------------------------------------
-
 function timeoutPromise(ms) { return new Promise((_, rej) => setTimeout(()=>rej(new Error('timeout')), ms)); }
-function sizeFromCitations(count){ const c = Math.max(0, Number(count)||0); return Math.round(6 + Math.sqrt(c)*4); } // nice sizing
+function sizeFromCitations(count){ const c = Math.max(0, Number(count)||0); return Math.round(5 + Math.sqrt(c)*4); }
 
 // fetch via proxy -> safe parse
 async function fetchJsonProxy(url){
   const attempt = PROXY + encodeURIComponent(url);
   const controller = new AbortController();
-  const id = setTimeout(()=>controller.abort(), 12000);
+  const id = setTimeout(()=>controller.abort(), 10000);
   try{
     const res = await fetch(attempt, { signal: controller.signal });
     clearTimeout(id);
@@ -175,30 +148,14 @@ async function fetchOpenAlex(doi){
   return await res.json();
 }
 
-// fetch referenced works for an OpenAlex work id, up to per_page (default 50 now)
-async function fetchOpenAlexReferencedWorks(openalexWorkId, per_page = 50){
-  try{
-    const seg = openalexWorkId.split('/').pop();
-    const url = `https://api.openalex.org/works/${encodeURIComponent(seg)}/referenced_works?per_page=${per_page}`;
-    const res = await fetch(url);
-    if(!res.ok) return [];
-    const j = await res.json();
-    return (j.results || []).map(r => r.id);
-  } catch(e){
-    console.warn('fetchOpenAlexReferencedWorks fail', e);
-    return [];
-  }
-}
-
-// fetch OpenAlex work details by id (works/Wxxxx)
+// fetch OpenAlex work by OpenAlex id (Wxxxx) using API path
 async function fetchOpenAlexWorkById(openalexWorkId){
-  try{
-    const seg = openalexWorkId.split('/').pop();
-    const url = `https://api.openalex.org/works/${encodeURIComponent(seg)}`;
-    const res = await fetch(url);
-    if(!res.ok) return null;
-    return await res.json();
-  }catch(e){ return null; }
+  // openalexWorkId may be a URL or id; get last segment
+  const seg = openalexWorkId.split('/').pop();
+  const apiUrl = `https://api.openalex.org/works/${encodeURIComponent(seg)}`;
+  const res = await fetch(apiUrl);
+  if(!res.ok) return null;
+  return await res.json();
 }
 
 // convert OpenAlex abstract_inverted_index to string
@@ -280,39 +237,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     spinner.style.display = 'inline-block';
-    status.textContent = '🔍 Veriler çekiliyor (Semantic Scholar öncelikli, OpenAlex yedeği)...';
+    status.textContent = '🔍 Veriler çekiliyor (SS + OpenAlex)...';
     topSummary.innerHTML = 'Kısa özet: <i>Yükleniyor...</i>';
 
-    // try Semantic Scholar first; if it fails, use exampleJsonData as fallback
-    let ssResult = null;
-    try{
-      ssResult = await fetchJsonProxy(`https://api.semanticscholar.org/graph/v1/paper/DOI:${encodeURIComponent(doi)}?fields=title,year,authors,doi,paperId,url,citationCount,abstract,references.paperId,references.title,references.year,references.doi,citations.paperId,citations.title,citations.year,citations.doi`);
-    }catch(e){
-      console.warn('Semantic Scholar fetch failed, using JSON fallback:', e);
-      // use example JSON as fallback (so UI doesn't fail)
-      ssResult = null; // keep null so OpenAlex still attempted below; but we will use example if both fail
-    }
+    // parallel requests
+    const ssPromise = (async ()=> {
+      try{
+        return await fetchJsonProxy(`https://api.semanticscholar.org/graph/v1/paper/DOI:${encodeURIComponent(doi)}?fields=title,year,authors,doi,paperId,url,citationCount,abstract,references.paperId,references.title,references.year,references.doi,citations.paperId,citations.title,citations.year,citations.doi`);
+      }catch(e){ console.warn('SS fail', e); return null; }
+    })();
+    const oxPromise = (async ()=> {
+      try{ return await fetchOpenAlex(doi); }catch(e){ console.warn('OX fail', e); return null; }
+    })();
 
-    // try OpenAlex in parallel (but only if needed)
-    let oxResult = null;
-    try{
-      oxResult = await Promise.race([ fetchOpenAlex(doi), timeoutPromise(SS_TIMEOUT).then(()=>null) ]);
-    }catch(e){ oxResult = null; }
+    let ssResult = null, oxResult = null;
+    try {
+      ssResult = await Promise.race([ ssPromise, timeoutPromise(SS_TIMEOUT).then(()=>{ throw new Error('ss-timeout'); }) ]).catch(e=>{ console.warn('ss race err', e); return null; });
+    } catch(e){ ssResult = null; }
+    try { oxResult = await Promise.race([ oxPromise, timeoutPromise(SS_TIMEOUT).then(()=>null) ]); } catch(e){ oxResult = null; }
 
-    // If both services failed to give useful data, use exampleJsonData
     if(!ssResult && !oxResult){
-      console.warn('Both SS and OpenAlex failed — using example JSON data.');
-      const finalData = exampleJsonData;
-      CACHE.set(doi, finalData);
-      currentData = finalData;
-      renderAll(finalData);
-      spinner.style.display = 'none';
-      status.textContent = `⚠️ Semantic Scholar ve OpenAlex yanıt vermedi — JSON yedeği yüklendi.`;
-      return;
+      try{ ssResult = await ssPromise; } catch(e){ ssResult = ssResult || null; }
+      try{ oxResult = await oxPromise; } catch(e){ oxResult = oxResult || null; }
     }
 
-    // Build finalData preferring SS when it contains refs/cits; else OpenAlex
     let finalData = null;
+    // Prefer SS if it has citations or references
     if(ssResult && ( (Array.isArray(ssResult.citations) && ssResult.citations.length>0) || (Array.isArray(ssResult.references) && ssResult.references.length>0) )){
       finalData = {
         source: 'ss',
@@ -330,7 +280,7 @@ document.addEventListener('DOMContentLoaded', () => {
           year: r.year || r.reference?.year || null,
           citationCount: r.citationCount || r.reference?.citationCount || 0,
           url: null
-        })).slice(0,50), // enforce 50 limit
+        })),
         citations: (ssResult.citations || []).map(c => ({
           title: c.title || c.citingPaper?.title || 'Başlık',
           paperId: c.paperId || c.citingPaper?.paperId || c.citingPaper?.doi || null,
@@ -341,24 +291,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }))
       };
 
-      // If SS references is empty but we have OpenAlex, try fill references from OpenAlex (limit 50)
+      // If SS references is empty but we have OpenAlex, try to fill references from OpenAlex (using OpenAlex API)
       if(finalData.references.length === 0 && oxResult && oxResult.id){
         try{
-          const refIds = await fetchOpenAlexReferencedWorks(oxResult.id, 50);
+          const refs = (oxResult.referenced_works || []).slice(0,200);
           const fetched = [];
-          for(let i=0;i<refIds.length;i+=25){
-            const chunk = refIds.slice(i,i+25);
+          for(let i=0;i<refs.length;i+=25){
+            const chunk = refs.slice(i,i+25);
             const p = await Promise.all(chunk.map(id => fetchOpenAlexWorkById(id).catch(()=>null)));
-            p.forEach(r => { if(r) fetched.push({ title: r.title, paperId: r.id, doi: r.doi||null, year: r.publication_year||null, citationCount: r.cited_by_count||0, url: r.primary_location?.source_url||null }); });
+            p.forEach(r=>{ if(r) fetched.push({ title: r.title, paperId: r.id, doi: r.doi||null, year: r.publication_year||null, citationCount: r.cited_by_count||0, url: r.primary_location?.source_url||null }); });
             await new Promise(r=>setTimeout(r,120));
           }
-          if(fetched.length>0) finalData.references = fetched.slice(0,50);
-          if(fetched.length>0) status.textContent += ' (OpenAlex references fallback kullanıldı — 50 sınırı uygulandı)';
+          if(fetched.length>0) finalData.references = fetched;
+          if(fetched.length>0) status.textContent += ' (OpenAlex references fallback kullanıldı)';
         }catch(e){ console.warn('fallback refs failed', e); }
       }
 
     } else if(oxResult && oxResult.id){
-      // build from OpenAlex
+      // build from OpenAlex (preferred if SS lacks)
       const base = {
         source: 'ox',
         title: oxResult.title,
@@ -371,16 +321,15 @@ document.addEventListener('DOMContentLoaded', () => {
         references: [],
         citations: []
       };
-      try{
-        const refIds = await fetchOpenAlexReferencedWorks(oxResult.id, 50);
-        for(let i=0;i<refIds.length;i+=25){
-          const chunk = refIds.slice(i,i+25);
-          const promises = chunk.map(id => fetchOpenAlexWorkById(id).catch(()=>null));
-          const results = await Promise.all(promises);
-          results.forEach(r => { if(r) base.references.push({ title: r.title, paperId: r.id, doi: r.doi||null, year: r.publication_year||null, citationCount: r.cited_by_count||0, url: r.primary_location?.source_url || null }); });
-          await new Promise(r=>setTimeout(r,120));
-        }
-      }catch(e){ console.warn('openalex referenced fetch fail', e); }
+      // fetch referenced works metadata batched (use OpenAlex API)
+      const refs = (oxResult.referenced_works || []).slice(0,200);
+      for(let i=0;i<refs.length;i+=25){
+        const chunk = refs.slice(i,i+25);
+        const promises = chunk.map(id => fetchOpenAlexWorkById(id).catch(()=>null));
+        const results = await Promise.all(promises);
+        results.forEach(r => { if(r) base.references.push({ title: r.title, paperId: r.id, doi: r.doi||null, year: r.publication_year||null, citationCount: r.cited_by_count||0, url: r.primary_location?.source_url || null }); });
+        await new Promise(r=>setTimeout(r,120));
+      }
       try{
         const citesResp = await fetch(`https://api.openalex.org/works?filter=cites:${encodeURIComponent(oxResult.id)}&per_page=200`);
         if(citesResp.ok){
@@ -388,28 +337,26 @@ document.addEventListener('DOMContentLoaded', () => {
           (cj.results || []).forEach(r => base.citations.push({ title: r.title, paperId: r.id, doi: r.doi||null, year: r.publication_year||null, citationCount: r.cited_by_count||0, url: r.primary_location?.source_url || null }));
         }
       }catch(e){ console.warn('openalex cites fetch fail', e); }
-      // enforce 50 limit
-      base.references = base.references.slice(0,50);
       finalData = base;
+    } else if(ssResult){
+      // minimal SS fallback
+      finalData = {
+        source: 'ss_min',
+        title: ssResult.title,
+        year: ssResult.year,
+        doi: ssResult.doi,
+        paperId: ssResult.paperId,
+        url: ssResult.url || (ssResult.doi?`https://doi.org/${ssResult.doi}`:null),
+        citationCount: ssResult.citationCount || 0,
+        abstract: ssResult.abstract || null,
+        references: (ssResult.references || []).map(r => ({ title: r.title || r.reference?.title || 'Başlık', paperId: r.paperId || r.reference?.paperId || null, doi: r.doi || r.reference?.doi || null, year: r.year || r.reference?.year || null, citationCount: r.citationCount || r.reference?.citationCount || 0, url: null })),
+        citations: (ssResult.citations || []).map(c => ({ title: c.title || c.citingPaper?.title || 'Başlık', paperId: c.paperId || c.citingPaper?.paperId || null, doi: c.doi || c.citingPaper?.doi || null, year: c.year || c.citingPaper?.year || null, citationCount: c.citationCount || c.citingPaper?.citationCount || 0, url: null }))
+      };
     } else {
-      // if we still have ssResult minimally, use that but enforce 50
-      if(ssResult){
-        finalData = {
-          source: 'ss_min',
-          title: ssResult.title,
-          year: ssResult.year,
-          doi: ssResult.doi,
-          paperId: ssResult.paperId,
-          url: ssResult.url || (ssResult.doi?`https://doi.org/${ssResult.doi}`:null),
-          citationCount: ssResult.citationCount || 0,
-          abstract: ssResult.abstract || null,
-          references: (ssResult.references || []).map(r => ({ title: r.title || r.reference?.title || 'Başlık', paperId: r.paperId || r.reference?.paperId || null, doi: r.doi || r.reference?.doi || null, year: r.year || r.reference?.year || null, citationCount: r.citationCount || r.reference?.citationCount || 0, url: null })).slice(0,50),
-          citations: (ssResult.citations || []).map(c => ({ title: c.title || c.citingPaper?.title || 'Başlık', paperId: c.paperId || c.citingPaper?.paperId || null, doi: c.doi || c.citingPaper?.doi || null, year: c.year || c.citingPaper?.year || null, citationCount: c.citationCount || c.citingPaper?.citationCount || 0, url: null }))
-        };
-      } else {
-        // final fallback example
-        finalData = exampleJsonData;
-      }
+      spinner.style.display = 'none';
+      status.textContent = '❌ Veri alınamadı: Kaynaklar yanıt vermedi.';
+      topSummary.innerHTML = 'Kısa özet: <i>Özet alınamadı.</i>';
+      return;
     }
 
     // cache & render
@@ -423,7 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // render summary + two graphs
   function renderAll(data){
     const abs = data.abstract ? (data.abstract.length>600 ? data.abstract.slice(0,600)+'…' : data.abstract) : '<i>Özet bulunamadı.</i>';
-    topSummary.innerHTML = `<strong style="font-size:0.95rem">${(data.title||'').substring(0,120)}</strong> (${data.year || '?'})<br><small>${abs}</small>`;
+    topSummary.innerHTML = `<strong>${data.title || ''}</strong> (${data.year || '?'})<br><small>${abs}</small>`;
 
     const yearLimit = yearFilter.value === 'all' ? 0 : parseInt(yearFilter.value);
     const citList = (data.citations||[]).filter(x => !(x.year && yearLimit && x.year < yearLimit));
@@ -437,7 +384,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function chooseLabelledNodes(list){
     const n = list.length;
     if(n === 0) return new Set();
-    const k = Math.max(12, Math.round(n * 0.12)); // reduce min to 12 to avoid overcrowd
+    const k = Math.max(20, Math.round(n * 0.12)); // top 12% or at least 20
     const sorted = [...list].sort((a,b)=> (Number(b.citationCount||0) - Number(a.citationCount||0)));
     const top = sorted.slice(0,k).map(x => x.paperId || x.id || x.doi || x.title);
     return new Set(top);
@@ -446,21 +393,16 @@ document.addEventListener('DOMContentLoaded', () => {
   function drawNetworkLeft(citations, data){
     const nodes = [], edges = [];
     const mainId = data.paperId || data.doi || 'main';
-    // show article title small on center node
-    nodes.push({ id: mainId, label:`${(data.title||'').substring(0,60)}`, title: `${data.title||''}\n(${data.year||'?'})`, color:'#f0a30a', size: Math.max(12, sizeFromCitations(data.citationCount||0)), url: data.url, citationCount: data.citationCount||0 });
+    nodes.push({ id: mainId, label:`[ANA]\n${(data.title||'').substring(0,40)}...`, title: `${data.title||''}\n(${data.year||'?'})`, color:'#f0a30a', size: sizeFromCitations(data.citationCount||0), url: data.url });
 
     // pick labelled nodes
     const labelledSet = chooseLabelledNodes(citations);
-
-    // compute max citationCount among citations for hover detection
-    let maxCitation = 0;
-    citations.forEach(it => { const c = Number(it.citationCount||0); if(c>maxCitation) maxCitation = c; });
 
     citations.forEach(item=>{
       const id = item.paperId || item.doi || (item.title + '::' + Math.random().toString(36).slice(2,6));
       const showLabel = labelledSet.has(item.paperId || item.doi || id);
       nodes.push({ id, label: showLabel ? (item.title||'').substring(0,40) : '', title:`${item.title||''}\nYıl:${item.year||'?'}`, color:'#34A853', size: sizeFromCitations(item.citationCount||0), url: item.doi?`https://doi.org/${item.doi}`: item.url || null, citationCount: item.citationCount||0 });
-      edges.push({ from: id, to: mainId, color:{ color:'#34A853' }, arrows: { to: { enabled: true, type: 'arrow' } }, width:2.6 });
+      edges.push({ from: id, to: mainId, color:{ color:'#34A853' } });
     });
 
     const uniq = {}; nodes.forEach(n => uniq[n.id] = n);
@@ -471,15 +413,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     leftNetwork = new vis.Network(leftEl, gdata, {
       nodes:{ shape:'dot', font:{ size:10, color: 'var(--text)' } },
-      edges:{ width:2.6, smooth:{ type:'dynamic' }, arrows:{ to:{ enabled:true, scaleFactor:1.2, type:'arrow' } } },
+      edges:{ width:1.6, smooth:{ type:'dynamic' }, arrows:{ to:{ enabled:true, scaleFactor:0.5 } } },
       physics:{ stabilization:false, barnesHut:{ gravitationalConstant:-2500, springLength:140, springConstant:0.02 } },
       interaction:{ hover:true, hoverConnectedEdges: true }
     });
 
     leftGraph = gdata;
-
-    // store maxCitation for hover checks
-    leftNetwork.body.data._maxCitation = maxCitation;
 
     leftNetwork.on('stabilizationIterationsDone', ()=> { try{ leftNetwork.physics.stop(); }catch(e){} });
     leftNetwork.on('click', params => {
@@ -490,16 +429,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     leftNetwork.on('doubleClick', params => { if(params.nodes.length){ const node = leftGraph.nodes.get(params.nodes[0]); if(node && node.url) window.open(node.url,'_blank'); } });
 
+    // when user hovers a node, temporarily show its label if it was hidden
     leftNetwork.on('hoverNode', params => {
       const n = leftGraph.nodes.get(params.node);
-      // temporarily show label if hidden
-      if(n && !n.label) leftGraph.nodes.update({ id: n.id, label: (n.title||'').split('\n')[0].slice(0,40) });
-      // if this node has the maximum citation, show special message
-      if(n && Number(n.citationCount||0) === leftNetwork.body.data._maxCitation && leftNetwork.body.data._maxCitation>0){
-        infoBox.style.display = 'block';
-        infoBox.style.left = (leftEl.getBoundingClientRect().left + 12) + 'px';
-        infoBox.style.top = (leftEl.getBoundingClientRect().top + 12) + 'px';
-        infoBox.innerHTML = `<strong>Bu makale en fazla atıf alan kaynaktır.</strong><br>${(n.title||'').split('\n')[0]}<br>Atıf sayısı: ${n.citationCount || 0}`;
+      if(n && !n.label){
+        leftGraph.nodes.update({ id: n.id, label: (n.title||'').split('\n')[0].slice(0,40) });
       }
     });
     leftNetwork.on('blurNode', params => {
@@ -508,26 +442,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const shouldHave = labelledSet.has(n.id);
         if(!shouldHave) leftGraph.nodes.update({ id: n.id, label: '' });
       }
-      hideInfo();
     });
   }
 
   function drawNetworkRight(references, data){
     const nodes = [], edges = [];
     const mainId = data.paperId || data.doi || 'main';
-    nodes.push({ id: mainId, label:`${(data.title||'').substring(0,60)}`, title: `${data.title||''}\n(${data.year||'?'})`, color:'#f0a30a', size: Math.max(12, sizeFromCitations(data.citationCount||0)), url: data.url, citationCount: data.citationCount||0 });
+    nodes.push({ id: mainId, label:`[ANA]\n${(data.title||'').substring(0,40)}...`, title: `${data.title||''}\n(${data.year||'?'})`, color:'#f0a30a', size: sizeFromCitations(data.citationCount||0), url: data.url });
 
     const labelledSet = chooseLabelledNodes(references);
-
-    // compute max citationCount among references
-    let maxCitation = 0;
-    references.forEach(it => { const c = Number(it.citationCount||0); if(c>maxCitation) maxCitation = c; });
 
     references.forEach(item=>{
       const id = item.paperId || item.doi || (item.title + '::' + Math.random().toString(36).slice(2,6));
       const showLabel = labelledSet.has(item.paperId || item.doi || id);
       nodes.push({ id, label: showLabel ? (item.title||'').substring(0,40) : '', title:`${item.title||''}\nYıl:${item.year||'?'}`, color:'#4285F4', size: sizeFromCitations(item.citationCount||0), url: item.doi?`https://doi.org/${item.doi}`: item.url || null, citationCount: item.citationCount||0 });
-      edges.push({ from: mainId, to: id, color:{ color:'#4285F4' }, arrows: { to: { enabled: true, type: 'arrow' } }, width:2.6 });
+      edges.push({ from: mainId, to: id, color:{ color:'#4285F4' } });
     });
 
     const uniq = {}; nodes.forEach(n => uniq[n.id] = n);
@@ -538,14 +467,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     rightNetwork = new vis.Network(rightEl, gdata, {
       nodes:{ shape:'dot', font:{ size:10, color: 'var(--text)' } },
-      edges:{ width:2.6, smooth:{ type:'dynamic' }, arrows:{ to:{ enabled:true, scaleFactor:1.2, type:'arrow' } } },
+      edges:{ width:1.6, smooth:{ type:'dynamic' }, arrows:{ to:{ enabled:true, scaleFactor:0.5 } } },
       physics:{ stabilization:false, barnesHut:{ gravitationalConstant:-2200, springLength:140, springConstant:0.02 } },
       interaction:{ hover:true, hoverConnectedEdges: true }
     });
 
     rightGraph = gdata;
-
-    rightNetwork.body.data._maxCitation = maxCitation;
 
     rightNetwork.on('stabilizationIterationsDone', ()=> { try{ rightNetwork.physics.stop(); }catch(e){} });
     rightNetwork.on('click', params => {
@@ -556,14 +483,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     rightNetwork.on('doubleClick', params => { if(params.nodes.length){ const node = rightGraph.nodes.get(params.nodes[0]); if(node && node.url) window.open(node.url,'_blank'); } });
 
+    // hover show behaviour for hidden labels
     rightNetwork.on('hoverNode', params => {
       const n = rightGraph.nodes.get(params.node);
-      if(n && !n.label) rightGraph.nodes.update({ id: n.id, label: (n.title||'').split('\n')[0].slice(0,40) });
-      if(n && Number(n.citationCount||0) === rightNetwork.body.data._maxCitation && rightNetwork.body.data._maxCitation>0){
-        infoBox.style.display = 'block';
-        infoBox.style.left = (rightEl.getBoundingClientRect().left + 12) + 'px';
-        infoBox.style.top = (rightEl.getBoundingClientRect().top + 12) + 'px';
-        infoBox.innerHTML = `<strong>Bu makale en fazla atıf alan kaynaktır.</strong><br>${(n.title||'').split('\n')[0]}<br>Atıf sayısı: ${n.citationCount || 0}`;
+      if(n && !n.label){
+        rightGraph.nodes.update({ id: n.id, label: (n.title||'').split('\n')[0].slice(0,40) });
       }
     });
     rightNetwork.on('blurNode', params => {
@@ -572,14 +496,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const shouldHave = labelledSet.has(n.id);
         if(!shouldHave) rightGraph.nodes.update({ id: n.id, label: '' });
       }
-      hideInfo();
     });
   }
 
   function showInfo(node){
     infoBox.style.display = 'block';
-    infoBox.style.left = '12px';
-    infoBox.style.top = '12px';
     infoBox.innerHTML = `<strong>${node.label || (node.title||'Başlık').split('\n')[0]}</strong><br>${(node.title||'')}<br>${node.url? `<a href="${node.url}" target="_blank">Makale sayfası</a>` : ''}`;
   }
   function hideInfo(){ infoBox.style.display = 'none'; }
